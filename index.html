@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Action Card Builder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            walmart: {
+              blue: '#0071DC', 'blue-dark': '#004F9A', 'blue-light': '#E6F1FC',
+              navy: '#041E42',
+              yellow: '#FFC220', spark: '#FFC220',
+              gray: { 50:'#F8F8F8', 100:'#F1F1F2', 200:'#E3E4E5', 300:'#D9D9D9', 400:'#74767C', 500:'#515357', 600:'#2E2F32', 700:'#2E2F32', 800:'#2E2F32' },
+              success:'#6DD400','success-dark':'#2A8703','success-light':'#E8F5E9',
+              error:'#9B1419','error-light':'#FCE8E9',
+              warning:'#F57C00','warning-light':'#FFF3E0',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    *{box-sizing:border-box}body{font-family:'Inter',system-ui,sans-serif}
+    .phone-frame{width:375px;height:812px;border-radius:44px;border:8px solid #1A1A1C;overflow:hidden;position:relative;box-shadow:0 25px 60px rgba(0,0,0,0.25),0 0 0 2px rgba(0,0,0,0.08);background:#F8F8F8;flex-shrink:0}
+    .phone-frame::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:26px;background:#1A1A1C;border-radius:0 0 18px 18px;z-index:50}
+    .phone-scroll{height:100%;overflow-y:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .phone-scroll::-webkit-scrollbar{display:none}
+    .toggle-track{width:40px;height:22px;border-radius:11px;transition:background .2s;cursor:pointer;position:relative;flex-shrink:0}
+    .toggle-thumb{width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+    .fade-in{animation:fadeIn .25s ease-out}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    .config-scroll{max-height:calc(100vh - 80px);overflow-y:auto;scrollbar-width:thin}
+    .config-scroll::-webkit-scrollbar{width:5px}
+    .config-scroll::-webkit-scrollbar-track{background:transparent}
+    .config-scroll::-webkit-scrollbar-thumb{background:#E3E4E5;border-radius:3px}
+    .highlight-pulse{animation:highlightPulse 2s ease-in-out infinite}
+    @keyframes highlightPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,113,220,0)}50%{box-shadow:0 0 0 4px rgba(0,113,220,0.15)}}
+    .card-divider{height:1px;background:#E3E4E5;margin:0 16px}
+    .info-card{border-radius:8px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.10),0 -1px 2px rgba(0,0,0,0.05)}
+    .cta-pill{height:39px;border-radius:19.5px;background:#fff;border:1px solid #2E2F32;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#2E2F32;cursor:pointer}
+    .status-pill{height:24px;border-radius:2px;display:inline-flex;align-items:center;padding:0 8px;font-size:11px;font-weight:600}
+    .tab-chip{height:39px;border-radius:19.5px;background:#004F9A;border:1px solid #2E2F32;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600}
+    .fab-btn{width:56px;height:56px;border-radius:28px;background:linear-gradient(180deg,#34B8FE 0%,#1946E8 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 5px rgba(0,0,0,0.15),0 -1px 3px rgba(0,0,0,0.10);position:absolute;right:16px;bottom:76px;z-index:10}
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef } = React;
+
+/* ═══════ ICONS ═══════ */
+const I={
+  Menu:()=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
+  Chat:()=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+  ChevronRight:({s=16,c='#999'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
+  Clock:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  Users:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  MapPin:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  Calendar:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  Tag:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
+  Type:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>,
+  Zap:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+  BarChart:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>,
+  Layers:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>,
+  AlertCircle:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+  CheckCircle:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+  Hash:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>,
+  Star:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+  Box:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>,
+  Utensils:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3m0 0v7"/></svg>,
+  MoreH:()=><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>,
+  Home:()=><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>,
+  Clipboard:()=><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>,
+  UsersTeam:()=><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  Store:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>,
+  Truck:()=><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+  Info:({s=14})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
+  Plus:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  X:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  ArrowUp:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>,
+  ArrowDown:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>,
+  Copy:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+  Download:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+  Refresh:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
+  Meal:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3m0 0v7" stroke="currentColor" fill="none" strokeWidth="2"/></svg>,
+  Pencil:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>,
+  TextCursor:({s=15})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 22h-1a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h1"/><path d="M7 22h1a4 4 0 0 0 4-4V6a4 4 0 0 0-4-4H7"/><line x1="7" y1="12" x2="17" y2="12"/></svg>,
+};
+
+/* ═══════ FIELD REGISTRY (7 card fields) ═══════ */
+const FIELD_REGISTRY = {
+  eyebrow:      { id:'eyebrow',      label:'Eyebrow (Goal Name)',    icon:I.Tag,    defaultValue:'Stock Fresh',            placeholder:'e.g. Goal name, Category label' },
+  actionName:   { id:'actionName',   label:'Action Name',            icon:I.Type,   defaultValue:'Stock D80 Service Deli', placeholder:'e.g. Stock D80 Service Deli' },
+  description:  { id:'description',  label:'Action Description',     icon:I.Info,   defaultValue:'',                       placeholder:'Optional description text...' },
+  attributes:   { id:'attributes',   label:'Attributes',             icon:I.Layers, defaultValue:'Time::25h (1,190 cases)||Location::Aisle A2-2', placeholder:'' },
+  messaging:    { id:'messaging',    label:'Messaging',              icon:I.Zap,    defaultValue:'Get started',            placeholder:'CTA label or message text' },
+};
+
+const DEFAULT_FIELDS = ['eyebrow','actionName','description','attributes','messaging'];
+
+
+function Toggle({checked,onChange}){return <div className={`toggle-track ${checked?'bg-walmart-blue':'bg-walmart-gray-200'}`} onClick={()=>onChange(!checked)}><div className="toggle-thumb" style={{left:checked?'20px':'2px'}}/></div>}
+
+/* ═══════ SINGLE ACTION CARD (in phone) ═══════ */
+function ActionCard({ fields, highlighted }) {
+  const active = fields.filter(f=>f.enabled);
+  const g = id => active.find(f=>f.id===id);
+  const eye=g('eyebrow'), name=g('actionName'), desc=g('description');
+  const attrs=g('attributes'), msg=g('messaging');
+  const attrList = attrs ? attrs.value.split('||').filter(raw=>{const idx=raw.indexOf('::');const val=idx>-1?raw.slice(idx+2):raw;return val.trim()}) : [];
+  const parseAttr=s=>{const idx=s.indexOf('::');return idx>-1?{label:s.slice(0,idx),val:s.slice(idx+2)}:{label:'',val:s}};
+
+  return (
+    <div className={`bg-white px-4 py-3 ${highlighted?'highlight-pulse ring-2 ring-walmart-blue/30 rounded-lg relative z-10':''}`}>
+      {eye&&eye.value&&<span className="text-[12px] font-medium block mb-1" style={{color:'#515357'}}>{eye.value}</span>}
+      {name&&name.value&&<h3 className="text-[15px] font-bold leading-tight" style={{color:'#2E2F32'}}>{name.value}</h3>}
+      {desc&&desc.value&&<p className="text-[12px] mt-1.5 leading-relaxed" style={{color:'#74767C'}}>{desc.value}</p>}
+      {attrList.length>0&&<div className="space-y-1 mt-1.5">
+        {attrList.map((raw,i)=>{const{label:lbl,val}=parseAttr(raw);return(
+          <div key={i} className="flex items-center gap-1.5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span className="text-[13px]" style={{color:'#515357'}}>{lbl?<><span style={{color:'#74767C'}}>{lbl}:</span> {val}</>:val}</span>
+          </div>
+        )})}
+      </div>}
+      {msg&&msg.value&&<div className="mt-3"><button className="cta-pill w-full">{msg.value}</button></div>}
+    </div>
+  );
+}
+
+/* ═══════ STATIC PEER CARDS (other actions in the list) ═══════ */
+function StaticCard({ cat, title, meta, badge, badgeColor, moreBtn }) {
+  const PILL_COLORS={'Active alarm':{bg:'#FCE8E9',text:'#9B1419'},'Urgent':{bg:'#FCE8E9',text:'#9B1419'},'Overdue':{bg:'#FCE8E9',text:'#9B1419'},'Due today':{bg:'#F1F1F2',text:'#515357'},'New':{bg:'#E6F1FC',text:'#0071DC'},'New updates':{bg:'#E6F1FC',text:'#0071DC'}};
+  const bC = badgeColor || PILL_COLORS[badge] || {bg:'#F1F1F2',text:'#515357'};
+  return (
+    <div className="bg-white px-4 py-3">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[12px] font-medium" style={{color:'#515357'}}>{cat}</span>
+        <div className="flex items-center gap-2">
+          {badge&&<span className="status-pill" style={{background:bC.bg,color:bC.text}}>{badge}</span>}
+          {moreBtn&&<button className="flex items-center justify-center" style={{width:39,height:23,borderRadius:19.5,border:'1px solid #E3E4E5'}}><I.MoreH/></button>}
+        </div>
+      </div>
+      <h3 className="text-[15px] font-bold leading-tight mb-1.5" style={{color:'#2E2F32'}}>{title}</h3>
+      <div className="space-y-1">
+        {meta.map((m,i)=><div key={i} className="flex items-center gap-1.5"><span className="text-[13px]" style={{color:'#515357'}}>{m}</span></div>)}
+      </div>
+      <div className="mt-3"><button className="cta-pill w-full">Get started</button></div>
+    </div>
+  );
+}
+
+/* ═══════ FULL PHONE SCREEN ═══════ */
+function PhoneScreen({ fields }) {
+  return (
+    <div className="phone-frame">
+      <div className="phone-scroll" style={{background:'#F8F8F8'}}>
+        {/* ── Blue header (124px) ── */}
+        <div style={{background:'#0071DC',height:124,position:'relative'}}>
+          {/* Status bar */}
+          <div className="flex items-center justify-between px-6 pt-3">
+            <span className="text-[13px] font-semibold text-white">9:41</span>
+            <div className="flex items-center gap-1.5">
+              <svg width="16" height="12" viewBox="0 0 16 12" fill="white"><rect x="0" y="3" width="3" height="9" rx=".5" opacity=".3"/><rect x="4.5" y="2" width="3" height="10" rx=".5" opacity=".5"/><rect x="9" y="1" width="3" height="11" rx=".5" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="12" rx=".5"/></svg>
+              <svg width="15" height="12" viewBox="0 0 15 12" fill="white"><path d="M7.5 3.6C9.3 3.6 10.9 4.3 12 5.5L13.4 4.1C11.9 2.5 9.8 1.5 7.5 1.5C5.2 1.5 3.1 2.5 1.6 4.1L3 5.5C4.1 4.3 5.7 3.6 7.5 3.6Z" opacity=".5"/><path d="M7.5 6.8C8.6 6.8 9.5 7.2 10.2 7.9L11.6 6.5C10.5 5.5 9.1 4.8 7.5 4.8C5.9 4.8 4.5 5.5 3.4 6.5L4.8 7.9C5.5 7.2 6.4 6.8 7.5 6.8Z"/><circle cx="7.5" cy="10.5" r="1.5"/></svg>
+              <div className="w-6 h-3 border border-white/60 rounded-sm relative"><div className="absolute inset-0.5 bg-white rounded-[1px]" style={{width:'70%'}}/></div>
+            </div>
+          </div>
+          {/* Nav row */}
+          <div className="flex items-center justify-between px-4 mt-2">
+            <div className="flex items-center gap-3">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              <span className="text-[18px] font-bold text-white">For You</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <div className="relative">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold" style={{background:'#CCE3F8',color:'#041E42'}}>DJ</div>
+                <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2" style={{background:'#6DD400',borderColor:'#F8F8F8'}}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Greeting / illustration area ── */}
+        <div style={{background:'#0071DC',padding:'16px 16px 0',position:'relative',overflow:'hidden'}}>
+          <div className="relative" style={{minHeight:80}}>
+            <div>
+              <p className="text-[12px] text-white/80">Good morning,</p>
+              <h2 className="text-[20px] font-bold text-white mt-0.5">Darnelle!</h2>
+            </div>
+            {/* Decorative illustration placeholder */}
+            <div className="absolute right-0 top-0" style={{width:140,height:80,opacity:0.3}}>
+              <svg viewBox="0 0 140 80" fill="none"><circle cx="70" cy="40" r="30" fill="white" opacity="0.3"/><circle cx="110" cy="50" r="20" fill="white" opacity="0.2"/><circle cx="40" cy="55" r="15" fill="white" opacity="0.25"/></svg>
+            </div>
+          </div>
+          {/* Clocked in card */}
+          <div className="mt-2 rounded-xl p-3" style={{background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.15)'}}>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="w-2 h-2 rounded-full" style={{background:'#6DD400'}}></span>
+              <span className="text-[12px] text-white font-medium">Clocked in</span>
+            </div>
+            <h3 className="text-[15px] font-bold text-white leading-tight">Food & Consumables TL</h3>
+            <div className="mt-2 space-y-0.5">
+              <div className="flex items-center gap-1.5 text-white/80"><I.Clock s={12}/><span className="text-[11px]">Today, 7:30am - 4:00pm</span></div>
+              <div className="flex items-center gap-1.5 text-white/80"><I.Meal/><span className="text-[11px]">12:00pm - 12:30pm</span></div>
+              <div className="flex items-center gap-1.5 text-white/80"><I.Store/><span className="text-[11px]">Store #972</span></div>
+            </div>
+            <div className="flex items-center gap-2 mt-3">
+              <button className="px-4 rounded-full text-[11px] font-bold flex items-center gap-1.5" style={{height:39,borderRadius:19.5,background:'#FFC220',color:'#2E2F32'}}><I.Utensils/>Start meal</button>
+              <button className="px-4 rounded-full text-[11px] font-semibold flex items-center gap-1.5" style={{height:39,borderRadius:19.5,background:'rgba(255,255,255,0.15)',color:'white',border:'1px solid rgba(255,255,255,0.3)'}}><I.Clock s={12}/>Clock out</button>
+              <button className="flex items-center justify-center" style={{width:39,height:39,borderRadius:19.5,background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',color:'white'}}><I.MoreH/></button>
+            </div>
+          </div>
+
+          {/* Tab chips nav band */}
+          <div className="flex items-center gap-3 mt-4 pb-4">
+            <button className="tab-chip flex-1 gap-1.5" style={{background:'#004F9A'}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              For you
+            </button>
+            <button className="tab-chip flex-1 gap-1.5" style={{background:'#004F9A'}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Today's plan
+            </button>
+            <button className="tab-chip" style={{width:39,flexShrink:0,background:'#004F9A'}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Your actions section (white bg) ── */}
+        <div style={{background:'#fff'}}>
+          {/* Section header */}
+          <div className="px-4 pt-4 pb-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[16px] font-bold" style={{color:'#2E2F32'}}>Your actions <span className="font-normal" style={{color:'#74767C'}}>(12)</span></h2>
+              <div className="flex items-center gap-1">
+                <span className="text-[12px] font-semibold" style={{color:'#0071DC'}}>View all</span>
+                <I.ChevronRight s={14} c="#0071DC"/>
+              </div>
+            </div>
+            <p className="text-[11px] mt-0.5" style={{color:'#74767C'}}>Your personalized actions, ordered by impact.</p>
+            {/* Info pill */}
+            <div className="flex items-center gap-1.5 mt-3 px-3 py-2 rounded-full" style={{background:'#E6F1FC'}}>
+              <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </div>
+              <span className="text-[11px] font-medium" style={{color:'#0071DC'}}>Actions assigned for maximum customer value.</span>
+            </div>
+          </div>
+
+          {/* ── Action cards list (flat, separated by dividers) ── */}
+          <div className="mt-2">
+            {/* Card 1: Refrigeration alarm */}
+            <StaticCard cat="Refrigeration alarm" title="High Temperature Alarm in Produce A2-2" badge="Active alarm" moreBtn={true} meta={['Aisle A2-2']} />
+            <div className="card-divider"/>
+
+            {/* ★ Card 2: THE CONFIGURABLE CARD ★ */}
+            <ActionCard fields={fields} highlighted={true} />
+            <div className="card-divider"/>
+
+            {/* Card 3: Topstock */}
+            <StaticCard cat="Topstock" title="Topstock in aisle F8" meta={['Aisle F8']} />
+            <div className="card-divider"/>
+
+            {/* Card 4: VizPick */}
+            <StaticCard cat="VizPick Scan & Pick" title="Scan and pick in aisle 008" meta={['Backroom aisle 008','Me, Jordan Taylor']} />
+            <div className="card-divider"/>
+
+            {/* Card 5: Notes */}
+            <StaticCard cat="Notes" title="Fix DSL labels in A24" badge="Due today" meta={['Daily tour']} />
+            <div className="card-divider"/>
+
+            {/* Card 6: Notes */}
+            <StaticCard cat="Notes" title="Clean underneath produce bins" badge="Due today" meta={['Daily tour','Me, Jordan Taylor']} />
+
+            {/* Card 7: Learning */}
+            <StaticCard cat="Learning" title="Hazardous waste foundations" badge="Overdue" meta={['Store essentials']} />
+          </div>
+        </div>
+
+        {/* ── Gray spacer ── */}
+        <div style={{height:8,background:'#F8F8F8'}}/>
+
+        {/* ── Things to know section (white bg) ── */}
+        <div style={{background:'#fff',paddingBottom:80}}>
+          <div className="px-4 pt-4 pb-3">
+            <h2 className="text-[16px] font-bold" style={{color:'#2E2F32'}}>Things to know</h2>
+          </div>
+          <div className="px-4 space-y-4">
+            {/* Store updates */}
+            <div className="info-card p-4">
+              <p className="text-[14px] font-bold" style={{color:'#2E2F32'}}>Store updates <span className="font-normal" style={{color:'#74767C'}}>(6)</span></p>
+              <p className="text-[12px] mt-1" style={{color:'#515357'}}>New AMP messages for your team or store to view and act on this week.</p>
+              <div style={{height:1,background:'#D9D9D9',margin:'12px 0'}}/>
+              <button className="cta-pill w-full">View store updates</button>
+            </div>
+            {/* My updates */}
+            <div className="info-card p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[14px] font-bold" style={{color:'#2E2F32'}}>My updates <span className="font-normal" style={{color:'#74767C'}}>(87)</span></p>
+                <span className="status-pill" style={{background:'#E6F1FC',color:'#0071DC'}}>New updates</span>
+              </div>
+              <p className="text-[12px] mt-1" style={{color:'#515357'}}>See updates just for you</p>
+              <div style={{height:1,background:'#D9D9D9',margin:'12px 0'}}/>
+              <button className="cta-pill w-full">View my updates</button>
+            </div>
+            {/* Today's freight */}
+            <div className="info-card p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-[14px] font-bold" style={{color:'#2E2F32'}}>Today's freight</p>
+                  <p className="text-[12px] mt-1" style={{color:'#515357'}}>See trucks arriving in your store today.</p>
+                  <div style={{height:1,background:'#D9D9D9',margin:'12px 0'}}/>
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <I.Truck/><span className="text-[12px] font-medium" style={{color:'#2E2F32'}}>3 of 5 warehouse trucks arrived</span>
+                  </div>
+                </div>
+                <div className="flex-shrink-0 ml-3 w-20 h-20 rounded-full flex items-center justify-center" style={{background:'#D3EFF8'}}>
+                  <I.Truck/>
+                </div>
+              </div>
+              <button className="cta-pill w-full">View freight details</button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Bottom tab bar (68px) ── */}
+        <div className="sticky bottom-0 flex items-center justify-around px-4" style={{height:68,background:'#fff',boxShadow:'0 -5px 10px rgba(0,0,0,0.05)'}}>
+          <div className="flex flex-col items-center gap-1">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#0071DC" stroke="#0071DC" strokeWidth="0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <span className="text-[10px] font-semibold" style={{color:'#0071DC'}}>For you</span>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span className="text-[10px]" style={{color:'#74767C'}}>Today's plan</span>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span className="text-[10px]" style={{color:'#74767C'}}>Your team</span>
+          </div>
+        </div>
+
+        {/* ── FAB button ── */}
+        <div className="fab-btn" style={{position:'sticky',bottom:76,marginLeft:'auto',marginRight:16,marginTop:-56}}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+
+        <div style={{height:8,background:'#fff'}}/>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════ CONFIG: FIELD ROW ═══════ */
+function FieldRow({ field, index, total, onUpdate, onMove }) {
+  const reg = FIELD_REGISTRY[field.id];
+  const Icon = reg.icon;
+  const label = reg.label;
+  const placeholder = reg.placeholder;
+  const isOptional = ['description','attributes','messaging'].includes(field.id);
+
+  return (
+    <div className={`rounded-xl border ${field.enabled?'border-walmart-gray-100 bg-white':'border-walmart-gray-100 bg-walmart-gray-50 opacity-50'} p-3 fade-in`}>
+      <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-0.5 mr-0.5">
+          <button onClick={()=>onMove(index,-1)} disabled={index===0} className="text-walmart-gray-300 hover:text-walmart-gray-600 disabled:opacity-20 p-0.5"><I.ArrowUp/></button>
+          <button onClick={()=>onMove(index,1)} disabled={index===total-1} className="text-walmart-gray-300 hover:text-walmart-gray-600 disabled:opacity-20 p-0.5"><I.ArrowDown/></button>
+        </div>
+        <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${field.enabled?'bg-walmart-blue-light text-walmart-blue':'bg-walmart-gray-100 text-walmart-gray-400'}`}><Icon s={14}/></div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide">{label}{isOptional&&<span className="text-walmart-gray-300 normal-case font-normal ml-1">(optional)</span>}</span>
+            {field.id==='eyebrow'?
+              <span className="text-[10px] text-walmart-gray-300 italic">conditional</span>
+            :
+              <Toggle checked={field.enabled} onChange={v=>onUpdate({...field,enabled:v})}/>
+            }
+          </div>
+          {field.enabled && (
+            field.id==='attributes' ? (()=>{
+              const parts=field.value?field.value.split('||'):[];
+              const parse=s=>{const idx=s.indexOf('::');return idx>-1?{label:s.slice(0,idx),val:s.slice(idx+2)}:{label:'',val:s}};
+              const serialize=(lbl,val)=>lbl?lbl+'::'+val:val;
+              const updateAt=(i,lbl,val)=>{const p=[...parts];p[i]=serialize(lbl,val);onUpdate({...field,value:p.join('||')})};
+              const removeAt=i=>{const p=parts.filter((_,j)=>j!==i);onUpdate({...field,value:p.join('||')})};
+              const addAttr=()=>onUpdate({...field,value:field.value+(field.value?'||':'')+''});
+              return <div className="space-y-2.5">
+                {parts.map((raw,i)=>{const {label:lbl,val}=parse(raw); return (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <input type="text" value={lbl} onChange={e=>updateAt(i,e.target.value,val)} placeholder="Label (e.g. Time, Location)" className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide bg-transparent border-b border-dashed border-walmart-gray-200 focus:border-walmart-blue focus:outline-none pb-0.5 w-40"/>
+                      <button onClick={()=>removeAt(i)} className="text-walmart-gray-300 hover:text-walmart-error p-0.5 flex-shrink-0"><I.X/></button>
+                    </div>
+                    <input type="text" value={val} onChange={e=>updateAt(i,lbl,e.target.value)} placeholder="Enter value..." className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-1.5 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+                  </div>
+                )})}
+                <button onClick={addAttr} className="w-full py-1.5 rounded-lg border border-dashed border-walmart-gray-200 text-[11px] font-semibold text-walmart-gray-400 hover:border-walmart-blue hover:text-walmart-blue transition-all flex items-center justify-center gap-1"><I.Plus/> Add attribute</button>
+              </div>
+            })() :
+              <input type="text" value={field.value} onChange={e=>onUpdate({...field,value:e.target.value})} placeholder={placeholder} className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-1.5 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ═══════ DEFAULT DETAILS STATE ═══════ */
+const DEFAULT_DETAILS = {
+  actionName: 'Action name',
+  location: 'D8 Pets',
+  steps: [
+    {label:'Step label',bullets:['Supporting bullet','Supporting bullet','Supporting bullet']},
+    {label:'Step label',bullets:['Supporting bullet','Supporting bullet','Supporting bullet']},
+    {label:'Step label',bullets:['Supporting bullet','Supporting bullet','Supporting bullet']},
+    {label:'Step label',bullets:['Supporting bullet','Supporting bullet','Supporting bullet']},
+  ],
+  teamResponsible: 'Stocking 1',
+  assignedName: 'Alex Carter',
+  assignedRole: 'Role or position',
+  helpfulTools: [{name:'Item information',desc:'Scan items to find their locations and more.'}],
+  doneWhen: 'All new freight in the assigned area is stocked.',
+};
+
+/* ═══════ ACTION DETAILS PHONE PREVIEW ═══════ */
+function DetailsPhoneScreen({ d }) {
+  return (
+    <div className="phone-frame">
+      <div className="phone-scroll" style={{background:'#fff'}}>
+        {/* Blue header */}
+        <div style={{background:'#0071DC'}}>
+          <div className="flex items-center justify-between px-6 pt-3">
+            <span className="text-[13px] font-semibold text-white">9:41</span>
+            <div className="flex items-center gap-1.5">
+              <svg width="16" height="12" viewBox="0 0 16 12" fill="white"><rect x="0" y="3" width="3" height="9" rx=".5" opacity=".3"/><rect x="4.5" y="2" width="3" height="10" rx=".5" opacity=".5"/><rect x="9" y="1" width="3" height="11" rx=".5" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="12" rx=".5"/></svg>
+              <svg width="15" height="12" viewBox="0 0 15 12" fill="white"><path d="M7.5 3.6C9.3 3.6 10.9 4.3 12 5.5L13.4 4.1C11.9 2.5 9.8 1.5 7.5 1.5C5.2 1.5 3.1 2.5 1.6 4.1L3 5.5C4.1 4.3 5.7 3.6 7.5 3.6Z" opacity=".5"/><path d="M7.5 6.8C8.6 6.8 9.5 7.2 10.2 7.9L11.6 6.5C10.5 5.5 9.1 4.8 7.5 4.8C5.9 4.8 4.5 5.5 3.4 6.5L4.8 7.9C5.5 7.2 6.4 6.8 7.5 6.8Z"/><circle cx="7.5" cy="10.5" r="1.5"/></svg>
+              <div className="w-6 h-3 border border-white/60 rounded-sm relative"><div className="absolute inset-0.5 bg-white rounded-[1px]" style={{width:'70%'}}/></div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 px-4 pt-3 pb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            <span className="text-[17px] font-bold text-white">Action Details</span>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-4 pt-5 pb-4">
+          {/* 1. Action name */}
+          <h1 className="text-[22px] font-bold leading-tight" style={{color:'#2E2F32'}}>{d.actionName}</h1>
+          {/* 2. Location or time attribute */}
+          {d.location && (
+            <div className="flex items-center gap-2 mt-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span className="text-[14px]" style={{color:'#515357'}}>{d.location}</span>
+            </div>
+          )}
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* 3. Steps to succeed */}
+        <div className="px-4 py-4">
+          <p className="text-[14px] font-bold mb-3" style={{color:'#2E2F32'}}>Steps to succeed</p>
+          <div className="space-y-4">
+            {d.steps.map((step,si)=>(
+              <div key={si}>
+                <p className="text-[14px] font-medium mb-1.5" style={{color:'#2E2F32'}}>{si+1}. {step.label}</p>
+                <div className="space-y-1 pl-4">
+                  {step.bullets.map((b,bi)=>(
+                    <div key={bi} className="flex items-start gap-2">
+                      <span className="text-[13px] mt-0.5" style={{color:'#74767C'}}>&#8226;</span>
+                      <span className="text-[13px]" style={{color:'#515357'}}>{b}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* 4. Teams responsible */}
+        <div className="px-4 py-4">
+          <p className="text-[14px] font-bold mb-3" style={{color:'#2E2F32'}}>Teams responsible</p>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{background:'#E6F1FC'}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0071DC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <span className="text-[14px]" style={{color:'#2E2F32'}}>{d.teamResponsible}</span>
+          </div>
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* 5. Assigned to */}
+        <div className="px-4 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[14px] font-bold" style={{color:'#2E2F32'}}>Assigned to</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold" style={{background:'#E8E8E8',color:'#515357'}}>
+                {d.assignedName.split(' ').map(n=>n[0]).join('').slice(0,2)}
+              </div>
+              <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white" style={{background:'#6DD400'}}/>
+            </div>
+            <div>
+              <p className="text-[14px] font-bold" style={{color:'#2E2F32'}}>{d.assignedName}</p>
+              <p className="text-[12px]" style={{color:'#74767C'}}>{d.assignedRole}</p>
+            </div>
+          </div>
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* 6. Helpful tools */}
+        <div className="px-4 py-4">
+          <p className="text-[14px] font-bold mb-3" style={{color:'#2E2F32'}}>Helpful tools</p>
+          {d.helpfulTools.map((t,i)=>(
+            <div key={i} className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'#E6F1FC'}}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0071DC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="8" x2="22" y2="8"/><line x1="6" y1="4" x2="6" y2="20"/><line x1="10" y1="4" x2="10" y2="20"/><line x1="14" y1="4" x2="14" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/></svg>
+              </div>
+              <div>
+                <p className="text-[14px] font-medium" style={{color:'#0071DC',textDecoration:'underline'}}>{t.name}</p>
+                <p className="text-[12px]" style={{color:'#74767C'}}>{t.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* 7. You'll know you're done when */}
+        <div className="px-4 py-4 pb-6">
+          <p className="text-[14px] font-bold mb-3" style={{color:'#2E2F32'}}>You'll know you're done when...</p>
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{background:'#E6F1FC'}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0071DC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <p className="text-[14px] leading-relaxed pt-2" style={{color:'#2E2F32'}}>{d.doneWhen}</p>
+          </div>
+        </div>
+
+        <div style={{height:80}}/>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════ DETAILS CONFIG: STEP EDITOR ═══════ */
+function StepEditor({ step, index, total, onChange, onRemove, onMove }) {
+  const updateLabel=v=>onChange({...step,label:v});
+  const updateBullet=(bi,v)=>onChange({...step,bullets:step.bullets.map((b,j)=>j===bi?v:b)});
+  const addBullet=()=>onChange({...step,bullets:[...step.bullets,'']});
+  const removeBullet=bi=>onChange({...step,bullets:step.bullets.filter((_,j)=>j!==bi)});
+  return (
+    <div className="rounded-xl border border-walmart-gray-100 bg-white p-3 fade-in">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="flex flex-col gap-0.5 mr-0.5">
+          <button onClick={()=>onMove(index,-1)} disabled={index===0} className="text-walmart-gray-300 hover:text-walmart-gray-600 disabled:opacity-20 p-0.5"><I.ArrowUp/></button>
+          <button onClick={()=>onMove(index,1)} disabled={index===total-1} className="text-walmart-gray-300 hover:text-walmart-gray-600 disabled:opacity-20 p-0.5"><I.ArrowDown/></button>
+        </div>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-walmart-blue-light text-walmart-blue text-[12px] font-bold">{index+1}</div>
+        <input type="text" value={step.label} onChange={e=>updateLabel(e.target.value)} placeholder="Step label" className="flex-1 text-sm font-semibold border border-walmart-gray-200 rounded-lg px-3 py-1.5 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+        <button onClick={onRemove} className="text-walmart-gray-300 hover:text-walmart-error p-0.5"><I.X/></button>
+      </div>
+      <div className="pl-10 space-y-1.5">
+        {step.bullets.map((b,bi)=>(
+          <div key={bi} className="flex items-center gap-2">
+            <span className="text-walmart-gray-300 text-xs">&#8226;</span>
+            <input type="text" value={b} onChange={e=>updateBullet(bi,e.target.value)} placeholder="Supporting bullet" className="flex-1 text-[13px] border border-walmart-gray-200 rounded-lg px-2.5 py-1 text-walmart-gray-600 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+            <button onClick={()=>removeBullet(bi)} className="text-walmart-gray-300 hover:text-walmart-error p-0.5"><I.X/></button>
+          </div>
+        ))}
+        <button onClick={addBullet} className="text-[11px] text-walmart-blue font-semibold hover:underline flex items-center gap-1 pl-3"><I.Plus/> Add bullet</button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════ DETAILS CONFIG: TOOL EDITOR ═══════ */
+function ToolEditor({ tool, index, onChange, onRemove }) {
+  return (
+    <div className="rounded-xl border border-walmart-gray-100 bg-white p-3 fade-in">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-walmart-blue-light text-walmart-blue"><I.Zap s={14}/></div>
+        <input type="text" value={tool.name} onChange={e=>onChange({...tool,name:e.target.value})} placeholder="Tool name" className="flex-1 text-sm font-semibold border border-walmart-gray-200 rounded-lg px-3 py-1.5 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+        <button onClick={onRemove} className="text-walmart-gray-300 hover:text-walmart-error p-0.5"><I.X/></button>
+      </div>
+      <div className="pl-10">
+        <input type="text" value={tool.desc} onChange={e=>onChange({...tool,desc:e.target.value})} placeholder="Tool description" className="w-full text-[13px] border border-walmart-gray-200 rounded-lg px-2.5 py-1 text-walmart-gray-600 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+      </div>
+    </div>
+  );
+}
+
+
+/* ═══════ DEFAULT GOAL STATE ═══════ */
+const DEFAULT_GOALS = {
+  goalName: 'Goal name',
+  shortDescription: '',
+};
+
+const GOAL_ICONS = {
+  warning: (s=36)=><svg width={s} height={s} viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#FFF3E0"/><path d="M24 14l10 18H14L24 14z" fill="#F57C00" stroke="#E65100" strokeWidth="1.5"/><rect x="22.5" y="21" width="3" height="6" rx="1" fill="white"/><circle cx="24" cy="30" r="1.5" fill="white"/></svg>,
+  tools: (s=36)=><svg width={s} height={s} viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#FFF8E1"/><rect x="15" y="20" width="18" height="12" rx="2" fill="#FFC220" stroke="#E6A800" strokeWidth="1"/><rect x="21" y="16" width="6" height="5" rx="1" fill="none" stroke="#E6A800" strokeWidth="1.5"/><line x1="20" y1="24" x2="28" y2="24" stroke="#E6A800" strokeWidth="1.5"/></svg>,
+  scanner: (s=36)=><svg width={s} height={s} viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#E6F1FC"/><rect x="16" y="14" width="16" height="20" rx="2" fill="#0071DC" opacity="0.15" stroke="#0071DC" strokeWidth="1.2"/><line x1="19" y1="20" x2="29" y2="20" stroke="#0071DC" strokeWidth="1.2"/><line x1="19" y1="24" x2="29" y2="24" stroke="#0071DC" strokeWidth="1.2"/><line x1="19" y1="28" x2="25" y2="28" stroke="#0071DC" strokeWidth="1.2"/></svg>,
+  notes: (s=36)=><svg width={s} height={s} viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#FFF3E0"/><rect x="16" y="13" width="16" height="22" rx="2" fill="none" stroke="#F57C00" strokeWidth="1.5"/><line x1="20" y1="19" x2="28" y2="19" stroke="#F57C00" strokeWidth="1.2"/><line x1="20" y1="23" x2="28" y2="23" stroke="#F57C00" strokeWidth="1.2"/><line x1="20" y1="27" x2="24" y2="27" stroke="#F57C00" strokeWidth="1.2"/></svg>,
+};
+
+/* ═══════ GOAL PHONE SCREEN ═══════ */
+function GoalPhoneScreen({ g }) {
+  return (
+    <div className="phone-frame">
+      <div className="phone-scroll" style={{background:'#fff'}}>
+        {/* Status bar */}
+        <div className="flex items-center justify-between px-6 pt-3 pb-1">
+          <span className="text-[13px] font-semibold" style={{color:'#2E2F32'}}>9:41</span>
+          <div className="flex items-center gap-1.5">
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="#2E2F32"><rect x="0" y="3" width="3" height="9" rx=".5" opacity=".3"/><rect x="4.5" y="2" width="3" height="10" rx=".5" opacity=".5"/><rect x="9" y="1" width="3" height="11" rx=".5" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="12" rx=".5"/></svg>
+            <svg width="15" height="12" viewBox="0 0 15 12" fill="#2E2F32"><path d="M7.5 3.6C9.3 3.6 10.9 4.3 12 5.5L13.4 4.1C11.9 2.5 9.8 1.5 7.5 1.5C5.2 1.5 3.1 2.5 1.6 4.1L3 5.5C4.1 4.3 5.7 3.6 7.5 3.6Z" opacity=".5"/><path d="M7.5 6.8C8.6 6.8 9.5 7.2 10.2 7.9L11.6 6.5C10.5 5.5 9.1 4.8 7.5 4.8C5.9 4.8 4.5 5.5 3.4 6.5L4.8 7.9C5.5 7.2 6.4 6.8 7.5 6.8Z"/><circle cx="7.5" cy="10.5" r="1.5"/></svg>
+            <div className="w-6 h-3 border rounded-sm relative" style={{borderColor:'#2E2F32'}}><div className="absolute inset-0.5 rounded-[1px]" style={{width:'70%',background:'#2E2F32'}}/></div>
+          </div>
+        </div>
+
+        {/* Track progress header */}
+        <div className="px-4 pt-4 pb-2">
+          <h1 className="text-[22px] font-bold" style={{color:'#2E2F32'}}>Track progress</h1>
+          <p className="text-[13px] mt-1 leading-relaxed" style={{color:'#515357'}}>Review the progress of your team and adjust as needed based on your expertise.</p>
+        </div>
+
+        {/* View by toggle */}
+        <div className="px-4 pt-2 pb-4">
+          <div className="flex rounded-full overflow-hidden border" style={{borderColor:'#E3E4E5'}}>
+            <button className="flex-1 py-2.5 text-[13px] font-bold text-center" style={{background:'#fff',color:'#2E2F32'}}>View by work</button>
+            <button className="flex-1 py-2.5 text-[13px] font-medium text-center" style={{background:'#F8F8F8',color:'#74767C'}}>View by associate</button>
+          </div>
+        </div>
+
+        {/* Shift goals header */}
+        <div className="px-4 pt-1 pb-2">
+          <h2 className="text-[17px] font-bold" style={{color:'#2E2F32'}}>Shift goals <span className="font-normal" style={{color:'#74767C'}}>(3)</span></h2>
+        </div>
+
+        {/* Info pill */}
+        <div className="px-4 pb-3">
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-full" style={{background:'#F8F8F8'}}>
+            <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </div>
+            <span className="text-[11px] font-medium" style={{color:'#515357'}}>Actions assigned for maximum customer value.</span>
+          </div>
+        </div>
+
+        {/* Static goal 1: Refrigeration alarms (error) */}
+        <div className="px-4 py-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">{(GOAL_ICONS.warning)(36)}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <p className="text-[15px] font-bold" style={{color:'#2E2F32'}}>Refrigeration alarms</p>
+                <I.ChevronRight s={18} c="#74767C"/>
+              </div>
+              <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg" style={{background:'#FFF3E0'}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#F57C00"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                <span className="text-[12px]" style={{color:'#515357'}}>Failed to load goal.</span>
+                <span className="text-[12px] font-semibold ml-1" style={{color:'#2E2F32',textDecoration:'underline'}}>Try again.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* ★ Configurable goal card (highlighted) ★ */}
+        <div className="highlight-pulse ring-2 ring-walmart-blue/30 rounded-lg relative z-10 mx-2">
+          <div className="px-4 py-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 mt-0.5">{(GOAL_ICONS.tools)(36)}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-[15px] font-bold" style={{color:'#0071DC'}}>
+                    <span style={{color:'#0071DC'}}>&#10024; </span>{g.goalName || 'Goal name'}
+                  </p>
+                  <I.ChevronRight s={18} c="#74767C"/>
+                </div>
+                <p className="text-[14px] font-bold mt-1.5" style={{color:'#2E2F32'}}>25% complete</p>
+                <div className="w-full h-1.5 rounded-full mt-1.5 overflow-hidden" style={{background:'#E3E4E5'}}>
+                  <div className="h-full rounded-full" style={{width:'25%',background:'#0071DC'}}/>
+                </div>
+                <div className="flex items-center justify-between mt-1.5">
+                  <span className="text-[13px]" style={{color:'#2E2F32'}}>10 actions complete</span>
+                  <span className="text-[12px]" style={{color:'#74767C'}}>30 left</span>
+                </div>
+                {g.shortDescription && <p className="text-[12px] mt-2 leading-relaxed" style={{color:'#74767C'}}>{g.shortDescription}</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* Static goal 3: VizPick */}
+        <div className="px-4 py-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">{(GOAL_ICONS.scanner)(36)}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <p className="text-[15px] font-bold" style={{color:'#0071DC'}}>
+                  <span style={{color:'#0071DC'}}>&#10024; </span>VizPick
+                </p>
+                <I.ChevronRight s={18} c="#74767C"/>
+              </div>
+              <p className="text-[14px] font-bold mt-1.5" style={{color:'#2E2F32'}}>40% complete</p>
+              <div className="w-full h-1.5 rounded-full mt-1.5 overflow-hidden" style={{background:'#E3E4E5'}}>
+                <div className="h-full rounded-full" style={{width:'40%',background:'#0071DC'}}/>
+              </div>
+              <div className="flex items-center justify-between mt-1.5">
+                <span className="text-[13px]" style={{color:'#2E2F32'}}>9 actions complete</span>
+                <span className="text-[12px]" style={{color:'#74767C'}}>14 left</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* Additional work header */}
+        <div className="px-4 pt-5 pb-2">
+          <h2 className="text-[17px] font-bold" style={{color:'#2E2F32'}}>Additional work <span className="font-normal" style={{color:'#74767C'}}>(3)</span></h2>
+          <p className="text-[12px] mt-1 leading-relaxed" style={{color:'#515357'}}>Use your expertise to decide when to do this work and communicate to your team.</p>
+        </div>
+
+        {/* Additional work 1: Daily tour notes */}
+        <div className="px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">{(GOAL_ICONS.notes)(36)}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <p className="text-[15px] font-bold" style={{color:'#2E2F32'}}>Daily tour notes</p>
+                <I.ChevronRight s={18} c="#74767C"/>
+              </div>
+              <p className="text-[13px] mt-0.5" style={{color:'#515357'}}>12 to do</p>
+            </div>
+          </div>
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* Additional work 2: 4x4 tour notes (error) */}
+        <div className="px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">{(GOAL_ICONS.notes)(36)}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <p className="text-[15px] font-bold" style={{color:'#2E2F32'}}>4x4 tour notes</p>
+              </div>
+              <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg" style={{background:'#FFF3E0'}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#F57C00"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                <span className="text-[12px]" style={{color:'#515357'}}>Failed to load goal.</span>
+                <span className="text-[12px] font-semibold ml-1" style={{color:'#2E2F32',textDecoration:'underline'}}>Try again.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* Additional work 3: Market tour notes */}
+        <div className="px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">{(GOAL_ICONS.notes)(36)}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <p className="text-[15px] font-bold" style={{color:'#2E2F32'}}>Market tour notes</p>
+                <I.ChevronRight s={18} c="#74767C"/>
+              </div>
+              <p className="text-[13px] mt-0.5" style={{color:'#515357'}}>3 to do</p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{height:24}}/>
+      </div>
+    </div>
+  );
+}
+
+
+/* ═══════ DEFAULT GOAL DETAILS STATE ═══════ */
+const DEFAULT_GOAL_DETAILS = {
+  goalTitle: 'Goal title',
+  showLocation: true,
+  location: '',
+  showProgress: true,
+  progressRows: [
+    {name:'Name/area',timeframe:'Timeframe',label:'Label'},
+    {name:'Name/area',timeframe:'Timeframe',label:'Label'},
+    {name:'Name/area',timeframe:'Timeframe',label:'Label'},
+  ],
+  showGoalActions: true,
+};
+
+/* ═══════ GOAL DETAILS PHONE SCREEN ═══════ */
+function GoalDetailsPhoneScreen({ gd }) {
+  return (
+    <div className="phone-frame">
+      <div className="phone-scroll" style={{background:'#fff'}}>
+        {/* Blue header */}
+        <div style={{background:'#0071DC'}}>
+          <div className="flex items-center justify-between px-6 pt-3">
+            <span className="text-[13px] font-semibold text-white">9:41</span>
+            <div className="flex items-center gap-1.5">
+              <svg width="16" height="12" viewBox="0 0 16 12" fill="white"><rect x="0" y="3" width="3" height="9" rx=".5" opacity=".3"/><rect x="4.5" y="2" width="3" height="10" rx=".5" opacity=".5"/><rect x="9" y="1" width="3" height="11" rx=".5" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="12" rx=".5"/></svg>
+              <svg width="15" height="12" viewBox="0 0 15 12" fill="white"><path d="M7.5 3.6C9.3 3.6 10.9 4.3 12 5.5L13.4 4.1C11.9 2.5 9.8 1.5 7.5 1.5C5.2 1.5 3.1 2.5 1.6 4.1L3 5.5C4.1 4.3 5.7 3.6 7.5 3.6Z" opacity=".5"/><path d="M7.5 6.8C8.6 6.8 9.5 7.2 10.2 7.9L11.6 6.5C10.5 5.5 9.1 4.8 7.5 4.8C5.9 4.8 4.5 5.5 3.4 6.5L4.8 7.9C5.5 7.2 6.4 6.8 7.5 6.8Z"/><circle cx="7.5" cy="10.5" r="1.5"/></svg>
+              <div className="w-6 h-3 border border-white/60 rounded-sm relative"><div className="absolute inset-0.5 bg-white rounded-[1px]" style={{width:'70%'}}/></div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 px-4 pt-3 pb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            <span className="text-[17px] font-bold text-white">Goal Details</span>
+          </div>
+        </div>
+
+        {/* Goal title + image placeholder + attributes */}
+        <div className="px-4 pt-5 pb-3">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h1 className="text-[20px] font-bold" style={{color:'#2E2F32'}}>{gd.goalTitle || 'Goal title'}</h1>
+              <div className="flex items-center gap-2 mt-2">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span className="text-[13px] font-semibold" style={{color:'#2E2F32'}}>31h</span>
+                <span className="text-[13px]" style={{color:'#515357'}}>(981 cases)</span>
+              </div>
+              {gd.showLocation && gd.location && (
+                <div className="flex items-center gap-2 mt-1">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <span className="text-[13px] font-semibold" style={{color:'#2E2F32'}}>123</span>
+                  <span className="text-[13px]" style={{color:'#515357'}}>{gd.location}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex-shrink-0 w-14 h-14 rounded-lg border-2 flex items-center justify-center" style={{borderColor:'#E3E4E5',background:'#F8F8F8'}}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C4C5C7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </div>
+          </div>
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* Progress breakdown */}
+        {gd.showProgress && gd.progressRows && gd.progressRows.length > 0 && (<>
+          <div className="px-4 pt-4 pb-4">
+            <p className="text-[15px] font-bold" style={{color:'#2E2F32'}}>[Progress breakdown title]</p>
+            <p className="text-[13px] mt-0.5" style={{color:'#74767C'}}>Description text</p>
+            <div className="mt-3 space-y-2.5">
+              {gd.progressRows.map((r,i)=>(
+                <div key={i} className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[14px] font-semibold" style={{color:'#2E2F32'}}>{r.name}</p>
+                    <p className="text-[11px]" style={{color:'#74767C'}}>{r.timeframe}</p>
+                  </div>
+                  <span className="text-[13px] font-medium" style={{color:'#515357'}}>{r.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+        </>)}
+
+        {/* Static: Goal actions */}
+        {gd.showGoalActions && (<>
+        <div className="px-4 pt-4 pb-2">
+          <p className="text-[15px] font-bold" style={{color:'#2E2F32'}}>Goal actions <span className="font-normal" style={{color:'#74767C'}}>(4)</span></p>
+          <p className="text-[13px] mt-1 leading-snug" style={{color:'#74767C'}}>Review and adjust assignments as needed. Actions are listed in priority order.</p>
+        </div>
+
+        {/* Static: Search + filters */}
+        <div className="px-4 py-2 flex items-center gap-2">
+          <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-full border" style={{borderColor:'#E3E4E5'}}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span className="text-[13px]" style={{color:'#74767C'}}>Search</span>
+          </div>
+        </div>
+        <div className="px-4 pb-2 flex items-center gap-2">
+          <div className="flex items-center gap-1 px-3 py-1.5 rounded-full border" style={{borderColor:'#E3E4E5'}}>
+            <span className="text-[12px] font-medium" style={{color:'#2E2F32'}}>Status</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <div style={{height:1,background:'#E3E4E5',margin:'0 16px'}}/>
+
+        {/* Static: Assigned actions */}
+        <div className="px-4 pt-3 pb-4">
+          <p className="text-[14px] font-bold mb-2" style={{color:'#2E2F32'}}>Assigned actions <span className="font-normal" style={{color:'#74767C'}}>(5)</span></p>
+          <div style={{height:1,background:'#E3E4E5',marginBottom:8}}/>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-[13px]" style={{color:'#515357'}}>Select all actions</span>
+            <div className="w-5 h-5 border-2 rounded" style={{borderColor:'#E3E4E5'}}/>
+          </div>
+          <div style={{height:1,background:'#E3E4E5'}}/>
+          {[0,1].map(i=>(
+            <React.Fragment key={i}>
+              <div className="py-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-bold truncate" style={{color:'#2E2F32'}}>Stock Pallet ...130291</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span className="text-[12px]" style={{color:'#515357'}}>25h</span>
+                    </div>
+                    <div className="flex items-center gap-4 mt-0.5 ml-5">
+                      <span className="text-[11px]" style={{color:'#74767C'}}>(1,19...</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      <span className="text-[12px]" style={{color:'#515357'}}>D8 Pets, D11 Hardware</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                      <span className="text-[12px]" style={{color:'#515357'}}>Alex Carter &rarr; Label</span>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 w-5 h-5 border-2 rounded mt-1" style={{borderColor:'#E3E4E5'}}/>
+                </div>
+              </div>
+              {i===0 && <div style={{height:1,background:'#E3E4E5'}}/>}
+            </React.Fragment>
+          ))}
+        </div>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════ APP ═══════ */
+function App() {
+  const [activeTab,setActiveTab]=useState('card');
+
+  /* ── Card state ── */
+  const [fields,setFields]=useState(()=>DEFAULT_FIELDS.map(id=>({id,enabled:true,value:FIELD_REGISTRY[id].defaultValue})));
+
+  /* ── Details state ── */
+  const [details,setDetails]=useState(()=>JSON.parse(JSON.stringify(DEFAULT_DETAILS)));
+  const ud=(k,v)=>setDetails(p=>({...p,[k]:v}));
+
+  /* ── Goals state ── */
+  const [goals,setGoals]=useState(()=>JSON.parse(JSON.stringify(DEFAULT_GOALS)));
+  const ug=(k,v)=>setGoals(p=>({...p,[k]:v}));
+
+  /* ── Goal Details state ── */
+  const [goalDetails,setGoalDetails]=useState(()=>JSON.parse(JSON.stringify(DEFAULT_GOAL_DETAILS)));
+  const ugd=(k,v)=>setGoalDetails(p=>({...p,[k]:v}));
+
+  const [copied,setCopied]=useState(false);
+
+  /* ── Card helpers ── */
+  const updateField=(i,u)=>setFields(p=>p.map((f,j)=>j===i?u:f));
+  const moveField=(i,d)=>setFields(p=>{const n=[...p];const t=i+d;if(t<0||t>=n.length)return p;[n[i],n[t]]=[n[t],n[i]];return n});
+  const resetCardFields=()=>setFields(DEFAULT_FIELDS.map(id=>({id,enabled:true,value:FIELD_REGISTRY[id].defaultValue})));
+
+  /* ── Details helpers ── */
+  const updateStep=(i,s)=>ud('steps',details.steps.map((st,j)=>j===i?s:st));
+  const removeStep=i=>ud('steps',details.steps.filter((_,j)=>j!==i));
+  const moveStep=(i,dir)=>{const n=[...details.steps];const t=i+dir;if(t<0||t>=n.length)return;[n[i],n[t]]=[n[t],n[i]];ud('steps',n)};
+  const addStep=()=>ud('steps',[...details.steps,{label:'New step',bullets:['Supporting bullet']}]);
+  const updateTool=(i,t)=>ud('helpfulTools',details.helpfulTools.map((tl,j)=>j===i?t:tl));
+  const removeTool=i=>ud('helpfulTools',details.helpfulTools.filter((_,j)=>j!==i));
+  const addTool=()=>ud('helpfulTools',[...details.helpfulTools,{name:'Tool name',desc:'Description'}]);
+
+  /* ── Goal helpers ── */
+
+  /* ── Goal Details helpers ── */
+  const gdUpdateProgressRow=(i,v)=>ugd('progressRows',goalDetails.progressRows.map((r,j)=>j===i?v:r));
+  const gdRemoveProgressRow=i=>ugd('progressRows',goalDetails.progressRows.filter((_,j)=>j!==i));
+  const gdAddProgressRow=()=>ugd('progressRows',[...goalDetails.progressRows,{name:'Name/area',timeframe:'Timeframe',label:'Label'}]);
+
+  /* ── Export ── */
+  const exportJSON=()=>{
+    if(activeTab==='card'){
+      const parseA=s=>{const idx=s.indexOf('::');return idx>-1?{label:s.slice(0,idx),value:s.slice(idx+2)}:{value:s}};
+      const c={fields:fields.filter(f=>f.enabled).map(f=>({type:f.id,value:f.id==='attributes'?f.value.split('||').filter(Boolean).map(parseA):f.value}))};
+      return JSON.stringify(c,null,2);
+    } else if(activeTab==='details') {
+      return JSON.stringify(details,null,2);
+    } else if(activeTab==='goals') {
+      return JSON.stringify(goals,null,2);
+    } else {
+      return JSON.stringify(goalDetails,null,2);
+    }
+  };
+  const copyConfig=()=>{navigator.clipboard.writeText(exportJSON());setCopied(true);setTimeout(()=>setCopied(false),2000)};
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Header */}
+      <header className="bg-white border-b border-walmart-gray-100 px-6 sticky top-0 z-50">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={18} color="white"/></div>
+              <div>
+                <h1 className="text-lg font-bold text-walmart-gray-800">Action Experience Builder</h1>
+                <p className="text-[11px] text-walmart-gray-400">Build your action integration across card, detail & goal screens</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={copyConfig} className="px-4 py-2 rounded-lg text-sm font-semibold text-walmart-gray-600 hover:bg-walmart-gray-50 border border-walmart-gray-200 flex items-center gap-2">
+                {copied?<><I.CheckCircle s={14}/> Copied!</>:<><I.Copy/> Copy JSON</>}
+              </button>
+              <button onClick={()=>{const j=exportJSON();const b=new Blob([j],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`action-${activeTab}-config.json`;a.click();URL.revokeObjectURL(u)}} className="px-4 py-2 rounded-lg text-sm font-semibold bg-walmart-blue text-white hover:bg-walmart-blue-dark flex items-center gap-2"><I.Download/> Export</button>
+            </div>
+          </div>
+          {/* Tabs */}
+          <div className="flex gap-0 -mb-px">
+            <button onClick={()=>setActiveTab('card')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='card'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}>
+              <span className="flex items-center gap-2"><I.Layers s={14}/>Action Card</span>
+            </button>
+            <button onClick={()=>setActiveTab('details')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='details'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}>
+              <span className="flex items-center gap-2"><I.Clipboard/>Action Details</span>
+            </button>
+            <button onClick={()=>setActiveTab('goals')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='goals'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}>
+              <span className="flex items-center gap-2"><I.BarChart s={14}/>Goal Card</span>
+            </button>
+            <button onClick={()=>setActiveTab('goalDetails')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='goalDetails'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}>
+              <span className="flex items-center gap-2"><I.CheckCircle s={14}/>Goal Details</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-[1400px] mx-auto flex gap-6 p-6 items-start">
+        {/* LEFT: Config panels */}
+        <div className="flex-1 min-w-0 config-scroll space-y-5 pb-12 pr-2">
+
+          {activeTab==='card' ? (<>
+            {/* ── CARD TAB ── */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Card Fields</h3>
+                <span className="text-[11px] text-walmart-gray-300">{fields.filter(f=>f.enabled).length} of {fields.length} active</span>
+              </div>
+              <div className="space-y-2">
+                {fields.map((f,i)=><FieldRow key={`${f.id}-${i}`} field={f} index={i} total={fields.length} onUpdate={u=>updateField(i,u)} onMove={moveField}/>)}
+              </div>
+            </div>
+          </>) : activeTab==='details' ? (<>
+            {/* ── DETAILS TAB ── */}
+            {/* 1. Action name */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
+              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Action Name</h3>
+              <input type="text" value={details.actionName} onChange={e=>ud('actionName',e.target.value)} className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+            </div>
+
+            {/* 2. Location or time attribute */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
+              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Location or Time Attribute <span className="text-walmart-gray-300 normal-case font-normal">(optional)</span></h3>
+              <input type="text" value={details.location} onChange={e=>ud('location',e.target.value)} placeholder="e.g. D8 Pets, Aisle F8, 7:30am" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+            </div>
+
+            {/* 3. Steps to succeed */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Steps to Succeed</h3>
+                <span className="text-[11px] text-walmart-gray-300">{details.steps.length} steps</span>
+              </div>
+              <div className="space-y-2">
+                {details.steps.map((s,i)=><StepEditor key={i} step={s} index={i} total={details.steps.length} onChange={v=>updateStep(i,v)} onRemove={()=>removeStep(i)} onMove={moveStep}/>)}
+              </div>
+              <button onClick={addStep} className="mt-3 w-full py-2.5 rounded-xl border-2 border-dashed border-walmart-gray-200 text-sm font-semibold text-walmart-gray-400 hover:border-walmart-blue hover:text-walmart-blue transition-all flex items-center justify-center gap-2"><I.Plus/> Add step</button>
+            </div>
+
+            {/* 4. Teams responsible */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
+              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Teams Responsible</h3>
+              <input type="text" value={details.teamResponsible} onChange={e=>ud('teamResponsible',e.target.value)} placeholder="e.g. Stocking 1" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+            </div>
+
+            {/* 5. Assigned to */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
+              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Assigned To</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Name</label>
+                  <input type="text" value={details.assignedName} onChange={e=>ud('assignedName',e.target.value)} placeholder="e.g. Alex Carter" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Role / Position</label>
+                  <input type="text" value={details.assignedRole} onChange={e=>ud('assignedRole',e.target.value)} placeholder="e.g. Team Lead" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+                </div>
+              </div>
+            </div>
+
+            {/* 6. Helpful tools */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Helpful Tools</h3>
+                <span className="text-[11px] text-walmart-gray-300">{details.helpfulTools.length} tools</span>
+              </div>
+              <div className="space-y-2">
+                {details.helpfulTools.map((t,i)=><ToolEditor key={i} tool={t} index={i} onChange={v=>updateTool(i,v)} onRemove={()=>removeTool(i)}/>)}
+              </div>
+              <button onClick={addTool} className="mt-3 w-full py-2.5 rounded-xl border-2 border-dashed border-walmart-gray-200 text-sm font-semibold text-walmart-gray-400 hover:border-walmart-blue hover:text-walmart-blue transition-all flex items-center justify-center gap-2"><I.Plus/> Add tool</button>
+            </div>
+
+            {/* 7. You'll know you're done when */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4">
+              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider mb-2">You'll Know You're Done When...</h3>
+              <textarea value={details.doneWhen} onChange={e=>ud('doneWhen',e.target.value)} rows={2} className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue resize-none"/>
+            </div>
+          </>) : activeTab==='goals' ? (<>
+            {/* ── GOALS TAB ── */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
+              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Goal Card</h3>
+              <div>
+                <label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Goal Name</label>
+                <input type="text" value={goals.goalName} onChange={e=>ug('goalName',e.target.value)} placeholder="e.g. Topstock, VizPick" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Short Description <span className="text-walmart-gray-300 normal-case font-normal">(optional)</span></label>
+                <textarea value={goals.shortDescription} onChange={e=>ug('shortDescription',e.target.value)} rows={2} placeholder="Brief description of the goal..." className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue resize-none"/>
+              </div>
+            </div>
+          </>) : (<>
+            {/* ── GOAL DETAILS TAB ── */}
+            {/* 1. Goal title */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
+              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Goal Title</h3>
+              <input type="text" value={goalDetails.goalTitle} onChange={e=>ugd('goalTitle',e.target.value)} placeholder="e.g. Topstock, VizPick" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+            </div>
+
+            {/* 2. Location or time attribute */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Location or Time Attribute <span className="text-walmart-gray-300 normal-case font-normal">(optional)</span></h3>
+                <Toggle checked={goalDetails.showLocation} onChange={v=>ugd('showLocation',v)}/>
+              </div>
+              {goalDetails.showLocation && (
+                <input type="text" value={goalDetails.location} onChange={e=>ugd('location',e.target.value)} placeholder="e.g. D8 Pets, Aisle F8, 7:30am" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+              )}
+            </div>
+
+            {/* 3. Progress breakdown */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Progress Breakdown <span className="text-walmart-gray-300 normal-case font-normal">(optional)</span></h3>
+                <Toggle checked={goalDetails.showProgress} onChange={v=>ugd('showProgress',v)}/>
+              </div>
+              {goalDetails.showProgress && (
+                <div className="space-y-1.5">
+                  {goalDetails.progressRows.map((r,i)=>(
+                    <div key={i} className="flex items-center gap-2">
+                      <input type="text" value={r.name} onChange={e=>gdUpdateProgressRow(i,{...r,name:e.target.value})} placeholder="Name / Area" className="flex-1 text-[13px] border border-walmart-gray-200 rounded-lg px-2.5 py-1 text-walmart-gray-700 focus:outline-none focus:ring-1 focus:ring-walmart-blue/20"/>
+                      <input type="text" value={r.timeframe} onChange={e=>gdUpdateProgressRow(i,{...r,timeframe:e.target.value})} placeholder="Timeframe" className="w-24 text-[13px] border border-walmart-gray-200 rounded-lg px-2.5 py-1 text-walmart-gray-600 focus:outline-none focus:ring-1 focus:ring-walmart-blue/20"/>
+                      <input type="text" value={r.label} onChange={e=>gdUpdateProgressRow(i,{...r,label:e.target.value})} placeholder="Label" className="w-20 text-[13px] border border-walmart-gray-200 rounded-lg px-2.5 py-1 text-walmart-gray-600 focus:outline-none focus:ring-1 focus:ring-walmart-blue/20"/>
+                      <button onClick={()=>gdRemoveProgressRow(i)} className="text-walmart-gray-300 hover:text-walmart-error p-0.5"><I.X/></button>
+                    </div>
+                  ))}
+                  <button onClick={gdAddProgressRow} className="w-full py-1.5 rounded-lg border border-dashed border-walmart-gray-200 text-[11px] font-semibold text-walmart-gray-400 hover:border-walmart-blue hover:text-walmart-blue transition-all flex items-center justify-center gap-1"><I.Plus/> Add row</button>
+                </div>
+              )}
+            </div>
+
+            {/* 4. Goal actions (static section toggle) */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Goal Actions Section</h3>
+                <Toggle checked={goalDetails.showGoalActions} onChange={v=>ugd('showGoalActions',v)}/>
+              </div>
+            </div>
+          </>)}
+        </div>
+
+        {/* RIGHT: Phone */}
+        <div className="flex-shrink-0 sticky top-24">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Live Preview</h3>
+            <button onClick={()=>{
+              if(activeTab==='card') resetCardFields();
+              else if(activeTab==='details') setDetails(JSON.parse(JSON.stringify(DEFAULT_DETAILS)));
+              else if(activeTab==='goals') setGoals(JSON.parse(JSON.stringify(DEFAULT_GOALS)));
+              else setGoalDetails(JSON.parse(JSON.stringify(DEFAULT_GOAL_DETAILS)));
+            }} className="text-[11px] text-walmart-gray-400 hover:text-walmart-blue flex items-center gap-1"><I.Refresh/> Reset</button>
+          </div>
+          {activeTab==='card' ? (
+            <PhoneScreen fields={fields} />
+          ) : activeTab==='details' ? (
+            <DetailsPhoneScreen d={details} />
+          ) : activeTab==='goals' ? (
+            <GoalPhoneScreen g={goals} />
+          ) : (
+            <GoalDetailsPhoneScreen gd={goalDetails} />
+          )}
+          <p className="text-[10px] text-walmart-gray-300 text-center mt-3">
+            {activeTab==='card'?'The highlighted card reflects your configuration':activeTab==='details'?'Action Details screen preview':activeTab==='goals'?'Goal tracking screen preview':'Goal Details screen preview'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
