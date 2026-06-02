@@ -795,8 +795,11 @@ function GoalPhoneScreen({ g }) {
 /* ═══════ DEFAULT GOAL DETAILS STATE ═══════ */
 const DEFAULT_GOAL_DETAILS = {
   goalTitle: 'Goal title',
-  showLocation: true,
-  location: '',
+  showAttributes: true,
+  gdAttributes: [
+    {label:'Time',value:'31h (981 cases)'},
+    {label:'Location',value:'Aisle A2-2'},
+  ],
   showProgress: true,
   progressRows: [
     {name:'Name/area',timeframe:'Timeframe',label:'Label'},
@@ -832,18 +835,18 @@ function GoalDetailsPhoneScreen({ gd }) {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <h1 className="text-[20px] font-bold" style={{color:'#2E2F32'}}>{gd.goalTitle || 'Goal title'}</h1>
-              <div className="flex items-center gap-2 mt-2">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span className="text-[13px] font-semibold" style={{color:'#2E2F32'}}>31h</span>
-                <span className="text-[13px]" style={{color:'#515357'}}>(981 cases)</span>
-              </div>
-              {gd.showLocation && gd.location && (
-                <div className="flex items-center gap-2 mt-1">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  <span className="text-[13px] font-semibold" style={{color:'#2E2F32'}}>123</span>
-                  <span className="text-[13px]" style={{color:'#515357'}}>{gd.location}</span>
+              {gd.showAttributes && gd.gdAttributes && gd.gdAttributes.map((attr,i)=>(
+                <div key={i} className="flex items-center gap-2 mt-2">
+                  {attr.label.toLowerCase().includes('time') ? (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  ) : attr.label.toLowerCase().includes('location') || attr.label.toLowerCase().includes('aisle') ? (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  ) : (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                  )}
+                  <span className="text-[13px]" style={{color:'#515357'}}>{attr.value || attr.label}</span>
                 </div>
-              )}
+              ))}
             </div>
             <div className="flex-shrink-0 w-14 h-14 rounded-lg border-2 flex items-center justify-center" style={{borderColor:'#E3E4E5',background:'#F8F8F8'}}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C4C5C7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -938,33 +941,21 @@ function GoalDetailsPhoneScreen({ gd }) {
   );
 }
 
-/* ═══════ APP ═══════ */
-function App() {
+/* ═══════ EXPERIENCE BUILDER (4-tab editor) ═══════ */
+function ExperienceBuilder({ experience, onSave, onBack }) {
   const [activeTab,setActiveTab]=useState('card');
-
-  /* ── Card state ── */
-  const [fields,setFields]=useState(()=>DEFAULT_FIELDS.map(id=>({id,enabled:true,value:FIELD_REGISTRY[id].defaultValue})));
-
-  /* ── Details state ── */
-  const [details,setDetails]=useState(()=>JSON.parse(JSON.stringify(DEFAULT_DETAILS)));
+  const [fields,setFields]=useState(()=>experience.fields||DEFAULT_FIELDS.map(id=>({id,enabled:true,value:FIELD_REGISTRY[id].defaultValue})));
+  const [details,setDetails]=useState(()=>experience.details||JSON.parse(JSON.stringify(DEFAULT_DETAILS)));
   const ud=(k,v)=>setDetails(p=>({...p,[k]:v}));
-
-  /* ── Goals state ── */
-  const [goals,setGoals]=useState(()=>JSON.parse(JSON.stringify(DEFAULT_GOALS)));
+  const [goals,setGoals]=useState(()=>experience.goals||JSON.parse(JSON.stringify(DEFAULT_GOALS)));
   const ug=(k,v)=>setGoals(p=>({...p,[k]:v}));
-
-  /* ── Goal Details state ── */
-  const [goalDetails,setGoalDetails]=useState(()=>JSON.parse(JSON.stringify(DEFAULT_GOAL_DETAILS)));
+  const [goalDetails,setGoalDetails]=useState(()=>experience.goalDetails||JSON.parse(JSON.stringify(DEFAULT_GOAL_DETAILS)));
   const ugd=(k,v)=>setGoalDetails(p=>({...p,[k]:v}));
-
   const [copied,setCopied]=useState(false);
 
-  /* ── Card helpers ── */
   const updateField=(i,u)=>setFields(p=>p.map((f,j)=>j===i?u:f));
   const moveField=(i,d)=>setFields(p=>{const n=[...p];const t=i+d;if(t<0||t>=n.length)return p;[n[i],n[t]]=[n[t],n[i]];return n});
   const resetCardFields=()=>setFields(DEFAULT_FIELDS.map(id=>({id,enabled:true,value:FIELD_REGISTRY[id].defaultValue})));
-
-  /* ── Details helpers ── */
   const updateStep=(i,s)=>ud('steps',details.steps.map((st,j)=>j===i?s:st));
   const removeStep=i=>ud('steps',details.steps.filter((_,j)=>j!==i));
   const moveStep=(i,dir)=>{const n=[...details.steps];const t=i+dir;if(t<0||t>=n.length)return;[n[i],n[t]]=[n[t],n[i]];ud('steps',n)};
@@ -972,211 +963,113 @@ function App() {
   const updateTool=(i,t)=>ud('helpfulTools',details.helpfulTools.map((tl,j)=>j===i?t:tl));
   const removeTool=i=>ud('helpfulTools',details.helpfulTools.filter((_,j)=>j!==i));
   const addTool=()=>ud('helpfulTools',[...details.helpfulTools,{name:'Tool name',desc:'Description'}]);
-
-  /* ── Goal helpers ── */
-
-  /* ── Goal Details helpers ── */
   const gdUpdateProgressRow=(i,v)=>ugd('progressRows',goalDetails.progressRows.map((r,j)=>j===i?v:r));
   const gdRemoveProgressRow=i=>ugd('progressRows',goalDetails.progressRows.filter((_,j)=>j!==i));
   const gdAddProgressRow=()=>ugd('progressRows',[...goalDetails.progressRows,{name:'Name/area',timeframe:'Timeframe',label:'Label'}]);
 
-  /* ── Export ── */
   const exportJSON=()=>{
     if(activeTab==='card'){
       const parseA=s=>{const idx=s.indexOf('::');return idx>-1?{label:s.slice(0,idx),value:s.slice(idx+2)}:{value:s}};
-      const c={fields:fields.filter(f=>f.enabled).map(f=>({type:f.id,value:f.id==='attributes'?f.value.split('||').filter(Boolean).map(parseA):f.value}))};
-      return JSON.stringify(c,null,2);
-    } else if(activeTab==='details') {
-      return JSON.stringify(details,null,2);
-    } else if(activeTab==='goals') {
-      return JSON.stringify(goals,null,2);
-    } else {
-      return JSON.stringify(goalDetails,null,2);
-    }
+      return JSON.stringify({fields:fields.filter(f=>f.enabled).map(f=>({type:f.id,value:f.id==='attributes'?f.value.split('||').filter(Boolean).map(parseA):f.value}))},null,2);
+    } else if(activeTab==='details') return JSON.stringify(details,null,2);
+    else if(activeTab==='goals') return JSON.stringify(goals,null,2);
+    else return JSON.stringify(goalDetails,null,2);
   };
   const copyConfig=()=>{navigator.clipboard.writeText(exportJSON());setCopied(true);setTimeout(()=>setCopied(false),2000)};
+  const handleSave=()=>onSave({...experience,fields,details,goals,goalDetails,updatedAt:Date.now()});
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
       <header className="bg-white border-b border-walmart-gray-100 px-6 sticky top-0 z-50">
         <div className="max-w-[1400px] mx-auto">
           <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={18} color="white"/></div>
+              <button onClick={onBack} className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-walmart-gray-50 border border-walmart-gray-200">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#515357" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
               <div>
-                <h1 className="text-lg font-bold text-walmart-gray-800">Action Experience Builder</h1>
-                <p className="text-[11px] text-walmart-gray-400">Build your action integration across card, detail & goal screens</p>
+                <h1 className="text-lg font-bold text-walmart-gray-800">{experience.name}</h1>
+                <p className="text-[11px] text-walmart-gray-400">Configure across card, detail & goal screens</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={copyConfig} className="px-4 py-2 rounded-lg text-sm font-semibold text-walmart-gray-600 hover:bg-walmart-gray-50 border border-walmart-gray-200 flex items-center gap-2">
-                {copied?<><I.CheckCircle s={14}/> Copied!</>:<><I.Copy/> Copy JSON</>}
+              <button onClick={handleSave} className="px-5 py-2 rounded-lg text-sm font-bold bg-walmart-blue text-white hover:bg-walmart-blue-dark flex items-center gap-2">
+                <I.CheckCircle s={14}/> Save
               </button>
-              <button onClick={()=>{const j=exportJSON();const b=new Blob([j],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`action-${activeTab}-config.json`;a.click();URL.revokeObjectURL(u)}} className="px-4 py-2 rounded-lg text-sm font-semibold bg-walmart-blue text-white hover:bg-walmart-blue-dark flex items-center gap-2"><I.Download/> Export</button>
             </div>
           </div>
-          {/* Tabs */}
           <div className="flex gap-0 -mb-px">
-            <button onClick={()=>setActiveTab('card')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='card'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}>
-              <span className="flex items-center gap-2"><I.Layers s={14}/>Action Card</span>
-            </button>
-            <button onClick={()=>setActiveTab('details')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='details'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}>
-              <span className="flex items-center gap-2"><I.Clipboard/>Action Details</span>
-            </button>
-            <button onClick={()=>setActiveTab('goals')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='goals'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}>
-              <span className="flex items-center gap-2"><I.BarChart s={14}/>Goal Card</span>
-            </button>
-            <button onClick={()=>setActiveTab('goalDetails')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='goalDetails'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}>
-              <span className="flex items-center gap-2"><I.CheckCircle s={14}/>Goal Details</span>
-            </button>
+            <button onClick={()=>setActiveTab('card')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='card'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}><span className="flex items-center gap-2"><I.Layers s={14}/>Action Card</span></button>
+            <button onClick={()=>setActiveTab('details')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='details'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}><span className="flex items-center gap-2"><I.Clipboard/>Action Details</span></button>
+            <button onClick={()=>setActiveTab('goals')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='goals'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}><span className="flex items-center gap-2"><I.BarChart s={14}/>Goal Card</span></button>
+            <button onClick={()=>setActiveTab('goalDetails')} className={`px-5 py-2.5 text-[13px] font-semibold border-b-2 transition-all ${activeTab==='goalDetails'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}><span className="flex items-center gap-2"><I.CheckCircle s={14}/>Goal Details</span></button>
           </div>
         </div>
       </header>
 
       <div className="max-w-[1400px] mx-auto flex gap-6 p-6 items-start">
-        {/* LEFT: Config panels */}
         <div className="flex-1 min-w-0 config-scroll space-y-5 pb-12 pr-2">
-
           {activeTab==='card' ? (<>
-            {/* ── CARD TAB ── */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Card Fields</h3>
-                <span className="text-[11px] text-walmart-gray-300">{fields.filter(f=>f.enabled).length} of {fields.length} active</span>
-              </div>
-              <div className="space-y-2">
-                {fields.map((f,i)=><FieldRow key={`${f.id}-${i}`} field={f} index={i} total={fields.length} onUpdate={u=>updateField(i,u)} onMove={moveField}/>)}
-              </div>
+              <div className="flex items-center justify-between mb-2"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Card Fields</h3><span className="text-[11px] text-walmart-gray-300">{fields.filter(f=>f.enabled).length} of {fields.length} active</span></div>
+              <div className="space-y-2">{fields.map((f,i)=><FieldRow key={`${f.id}-${i}`} field={f} index={i} total={fields.length} onUpdate={u=>updateField(i,u)} onMove={moveField}/>)}</div>
             </div>
           </>) : activeTab==='details' ? (<>
-            {/* ── DETAILS TAB ── */}
-            {/* 1. Action name */}
-            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
-              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Action Name</h3>
-              <input type="text" value={details.actionName} onChange={e=>ud('actionName',e.target.value)} className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
-            </div>
-
-            {/* 2. Location or time attribute */}
-            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
-              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Location or Time Attribute <span className="text-walmart-gray-300 normal-case font-normal">(optional)</span></h3>
-              <input type="text" value={details.location} onChange={e=>ud('location',e.target.value)} placeholder="e.g. D8 Pets, Aisle F8, 7:30am" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
-            </div>
-
-            {/* 3. Steps to succeed */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Action Name</h3><input type="text" value={details.actionName} onChange={e=>ud('actionName',e.target.value)} className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/></div>
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Location or Time Attribute <span className="text-walmart-gray-300 normal-case font-normal">(optional)</span></h3><input type="text" value={details.location} onChange={e=>ud('location',e.target.value)} placeholder="e.g. D8 Pets, Aisle F8, 7:30am" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/></div>
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Steps to Succeed</h3>
-                <span className="text-[11px] text-walmart-gray-300">{details.steps.length} steps</span>
-              </div>
-              <div className="space-y-2">
-                {details.steps.map((s,i)=><StepEditor key={i} step={s} index={i} total={details.steps.length} onChange={v=>updateStep(i,v)} onRemove={()=>removeStep(i)} onMove={moveStep}/>)}
-              </div>
+              <div className="flex items-center justify-between mb-2"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Steps to Succeed</h3><span className="text-[11px] text-walmart-gray-300">{details.steps.length} steps</span></div>
+              <div className="space-y-2">{details.steps.map((s,i)=><StepEditor key={i} step={s} index={i} total={details.steps.length} onChange={v=>updateStep(i,v)} onRemove={()=>removeStep(i)} onMove={moveStep}/>)}</div>
               <button onClick={addStep} className="mt-3 w-full py-2.5 rounded-xl border-2 border-dashed border-walmart-gray-200 text-sm font-semibold text-walmart-gray-400 hover:border-walmart-blue hover:text-walmart-blue transition-all flex items-center justify-center gap-2"><I.Plus/> Add step</button>
             </div>
-
-            {/* 4. Teams responsible */}
-            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
-              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Teams Responsible</h3>
-              <input type="text" value={details.teamResponsible} onChange={e=>ud('teamResponsible',e.target.value)} placeholder="e.g. Stocking 1" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
-            </div>
-
-            {/* 5. Assigned to */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Teams Responsible</h3><select value={details.teamResponsible} onChange={e=>ud('teamResponsible',e.target.value)} className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue bg-white"><option value="">Select a team</option>{['Asset Protection','Digital','Deli/Bakery','Food/Consumables','Health & Beauty','Meat/Produce','Salesfloor','Frontend','Fuel','Auto Care Center','Entertainment','Fashion','Hardlines','Home','Seasonal','Management','Pharmacy','Stocking Day 1','Stocking Day 2','Stocking ON','Support','Vision Center'].map(t=><option key={t} value={t}>{t}</option>)}</select></div>
             <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
               <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Assigned To</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Name</label>
-                  <input type="text" value={details.assignedName} onChange={e=>ud('assignedName',e.target.value)} placeholder="e.g. Alex Carter" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
-                </div>
-                <div>
-                  <label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Role / Position</label>
-                  <input type="text" value={details.assignedRole} onChange={e=>ud('assignedRole',e.target.value)} placeholder="e.g. Team Lead" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
-                </div>
+                <div><label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Name</label><input type="text" value={details.assignedName} onChange={e=>ud('assignedName',e.target.value)} placeholder="e.g. Alex Carter" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/></div>
+                <div><label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Role / Position</label><input type="text" value={details.assignedRole} onChange={e=>ud('assignedRole',e.target.value)} placeholder="e.g. Team Lead" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/></div>
               </div>
             </div>
-
-            {/* 6. Helpful tools */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Helpful Tools</h3>
-                <span className="text-[11px] text-walmart-gray-300">{details.helpfulTools.length} tools</span>
-              </div>
-              <div className="space-y-2">
-                {details.helpfulTools.map((t,i)=><ToolEditor key={i} tool={t} index={i} onChange={v=>updateTool(i,v)} onRemove={()=>removeTool(i)}/>)}
-              </div>
+              <div className="flex items-center justify-between mb-2"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Helpful Tools</h3><span className="text-[11px] text-walmart-gray-300">{details.helpfulTools.length} tools</span></div>
+              <div className="space-y-2">{details.helpfulTools.map((t,i)=><ToolEditor key={i} tool={t} index={i} onChange={v=>updateTool(i,v)} onRemove={()=>removeTool(i)}/>)}</div>
               <button onClick={addTool} className="mt-3 w-full py-2.5 rounded-xl border-2 border-dashed border-walmart-gray-200 text-sm font-semibold text-walmart-gray-400 hover:border-walmart-blue hover:text-walmart-blue transition-all flex items-center justify-center gap-2"><I.Plus/> Add tool</button>
             </div>
-
-            {/* 7. You'll know you're done when */}
-            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4">
-              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider mb-2">You'll Know You're Done When...</h3>
-              <textarea value={details.doneWhen} onChange={e=>ud('doneWhen',e.target.value)} rows={2} className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue resize-none"/>
-            </div>
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider mb-2">You'll Know You're Done When...</h3><textarea value={details.doneWhen} onChange={e=>ud('doneWhen',e.target.value)} rows={2} className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue resize-none"/></div>
           </>) : activeTab==='goals' ? (<>
-            {/* ── GOALS TAB ── */}
             <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
               <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Goal Card</h3>
-              <div>
-                <label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Goal Name</label>
-                <input type="text" value={goals.goalName} onChange={e=>ug('goalName',e.target.value)} placeholder="e.g. Topstock, VizPick" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Short Description <span className="text-walmart-gray-300 normal-case font-normal">(optional)</span></label>
-                <textarea value={goals.shortDescription} onChange={e=>ug('shortDescription',e.target.value)} rows={2} placeholder="Brief description of the goal..." className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue resize-none"/>
-              </div>
+              <div><label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Goal Name</label><input type="text" value={goals.goalName} onChange={e=>ug('goalName',e.target.value)} placeholder="e.g. Topstock, VizPick" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/></div>
+              <div><label className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide block mb-1">Short Description <span className="text-walmart-gray-300 normal-case font-normal">(optional)</span></label><textarea value={goals.shortDescription} onChange={e=>ug('shortDescription',e.target.value)} rows={2} placeholder="Brief description of the goal..." className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue resize-none"/></div>
             </div>
           </>) : (<>
-            {/* ── GOAL DETAILS TAB ── */}
-            {/* 1. Goal title */}
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Goal Title</h3><input type="text" value={goalDetails.goalTitle} onChange={e=>ugd('goalTitle',e.target.value)} placeholder="e.g. Topstock, VizPick" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/></div>
             <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
-              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Goal Title</h3>
-              <input type="text" value={goalDetails.goalTitle} onChange={e=>ugd('goalTitle',e.target.value)} placeholder="e.g. Topstock, VizPick" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
-            </div>
-
-            {/* 2. Location or time attribute */}
-            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Location or Time Attribute <span className="text-walmart-gray-300 normal-case font-normal">(optional)</span></h3>
-                <Toggle checked={goalDetails.showLocation} onChange={v=>ugd('showLocation',v)}/>
-              </div>
-              {goalDetails.showLocation && (
-                <input type="text" value={goalDetails.location} onChange={e=>ugd('location',e.target.value)} placeholder="e.g. D8 Pets, Aisle F8, 7:30am" className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
-              )}
-            </div>
-
-            {/* 3. Progress breakdown */}
-            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Progress Breakdown <span className="text-walmart-gray-300 normal-case font-normal">(optional)</span></h3>
-                <Toggle checked={goalDetails.showProgress} onChange={v=>ugd('showProgress',v)}/>
-              </div>
-              {goalDetails.showProgress && (
-                <div className="space-y-1.5">
-                  {goalDetails.progressRows.map((r,i)=>(
-                    <div key={i} className="flex items-center gap-2">
-                      <input type="text" value={r.name} onChange={e=>gdUpdateProgressRow(i,{...r,name:e.target.value})} placeholder="Name / Area" className="flex-1 text-[13px] border border-walmart-gray-200 rounded-lg px-2.5 py-1 text-walmart-gray-700 focus:outline-none focus:ring-1 focus:ring-walmart-blue/20"/>
-                      <input type="text" value={r.timeframe} onChange={e=>gdUpdateProgressRow(i,{...r,timeframe:e.target.value})} placeholder="Timeframe" className="w-24 text-[13px] border border-walmart-gray-200 rounded-lg px-2.5 py-1 text-walmart-gray-600 focus:outline-none focus:ring-1 focus:ring-walmart-blue/20"/>
-                      <input type="text" value={r.label} onChange={e=>gdUpdateProgressRow(i,{...r,label:e.target.value})} placeholder="Label" className="w-20 text-[13px] border border-walmart-gray-200 rounded-lg px-2.5 py-1 text-walmart-gray-600 focus:outline-none focus:ring-1 focus:ring-walmart-blue/20"/>
-                      <button onClick={()=>gdRemoveProgressRow(i)} className="text-walmart-gray-300 hover:text-walmart-error p-0.5"><I.X/></button>
+              <div className="flex items-center justify-between"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Attributes</h3><Toggle checked={goalDetails.showAttributes} onChange={v=>ugd('showAttributes',v)}/></div>
+              {goalDetails.showAttributes && (<div className="space-y-2.5">
+                {(goalDetails.gdAttributes||[]).map((attr,i)=>(
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <input type="text" value={attr.label} onChange={e=>{const a=[...goalDetails.gdAttributes];a[i]={...a[i],label:e.target.value};ugd('gdAttributes',a);}} placeholder="Label (e.g. Time, Location)" className="text-[11px] font-semibold text-walmart-gray-500 uppercase tracking-wide bg-transparent border-b border-dashed border-walmart-gray-200 focus:border-walmart-blue focus:outline-none pb-0.5 w-40"/>
+                      <button onClick={()=>{const a=goalDetails.gdAttributes.filter((_,j)=>j!==i);ugd('gdAttributes',a);}} className="text-walmart-gray-300 hover:text-walmart-error p-0.5 flex-shrink-0"><I.X/></button>
                     </div>
-                  ))}
-                  <button onClick={gdAddProgressRow} className="w-full py-1.5 rounded-lg border border-dashed border-walmart-gray-200 text-[11px] font-semibold text-walmart-gray-400 hover:border-walmart-blue hover:text-walmart-blue transition-all flex items-center justify-center gap-1"><I.Plus/> Add row</button>
-                </div>
-              )}
+                    <input type="text" value={attr.value} onChange={e=>{const a=[...goalDetails.gdAttributes];a[i]={...a[i],value:e.target.value};ugd('gdAttributes',a);}} placeholder="Enter value..." className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-1.5 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+                  </div>
+                ))}
+                <button onClick={()=>ugd('gdAttributes',[...(goalDetails.gdAttributes||[]),{label:'',value:''}])} className="w-full py-1.5 rounded-lg border border-dashed border-walmart-gray-200 text-[11px] font-semibold text-walmart-gray-400 hover:border-walmart-blue hover:text-walmart-blue transition-all flex items-center justify-center gap-1"><I.Plus/> Add attribute</button>
+              </div>)}
             </div>
-
-            {/* 4. Goal actions (static section toggle) */}
-            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Goal Actions Section</h3>
-                <Toggle checked={goalDetails.showGoalActions} onChange={v=>ugd('showGoalActions',v)}/>
-              </div>
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3">
+              <div className="flex items-center justify-between"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Progress Breakdown <span className="text-walmart-gray-300 normal-case font-normal">(optional)</span></h3><Toggle checked={goalDetails.showProgress} onChange={v=>ugd('showProgress',v)}/></div>
+              {goalDetails.showProgress && (<div className="space-y-1.5">
+                {goalDetails.progressRows.map((r,i)=>(<div key={i} className="flex items-center gap-2"><input type="text" value={r.name} onChange={e=>gdUpdateProgressRow(i,{...r,name:e.target.value})} placeholder="Name / Area" className="flex-1 text-[13px] border border-walmart-gray-200 rounded-lg px-2.5 py-1 text-walmart-gray-700 focus:outline-none focus:ring-1 focus:ring-walmart-blue/20"/><input type="text" value={r.timeframe} onChange={e=>gdUpdateProgressRow(i,{...r,timeframe:e.target.value})} placeholder="Timeframe" className="w-24 text-[13px] border border-walmart-gray-200 rounded-lg px-2.5 py-1 text-walmart-gray-600 focus:outline-none focus:ring-1 focus:ring-walmart-blue/20"/><input type="text" value={r.label} onChange={e=>gdUpdateProgressRow(i,{...r,label:e.target.value})} placeholder="Label" className="w-20 text-[13px] border border-walmart-gray-200 rounded-lg px-2.5 py-1 text-walmart-gray-600 focus:outline-none focus:ring-1 focus:ring-walmart-blue/20"/><button onClick={()=>gdRemoveProgressRow(i)} className="text-walmart-gray-300 hover:text-walmart-error p-0.5"><I.X/></button></div>))}
+                <button onClick={gdAddProgressRow} className="w-full py-1.5 rounded-lg border border-dashed border-walmart-gray-200 text-[11px] font-semibold text-walmart-gray-400 hover:border-walmart-blue hover:text-walmart-blue transition-all flex items-center justify-center gap-1"><I.Plus/> Add row</button>
+              </div>)}
             </div>
+            <div className="bg-white rounded-xl border border-walmart-gray-100 p-4"><div className="flex items-center justify-between"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Goal Actions Section</h3><Toggle checked={goalDetails.showGoalActions} onChange={v=>ugd('showGoalActions',v)}/></div></div>
           </>)}
         </div>
 
-        {/* RIGHT: Phone */}
         <div className="flex-shrink-0 sticky top-24">
           <div className="flex items-center justify-between mb-3 px-1">
             <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Live Preview</h3>
@@ -1187,19 +1080,108 @@ function App() {
               else setGoalDetails(JSON.parse(JSON.stringify(DEFAULT_GOAL_DETAILS)));
             }} className="text-[11px] text-walmart-gray-400 hover:text-walmart-blue flex items-center gap-1"><I.Refresh/> Reset</button>
           </div>
-          {activeTab==='card' ? (
-            <PhoneScreen fields={fields} />
-          ) : activeTab==='details' ? (
-            <DetailsPhoneScreen d={details} />
-          ) : activeTab==='goals' ? (
-            <GoalPhoneScreen g={goals} />
-          ) : (
-            <GoalDetailsPhoneScreen gd={goalDetails} />
-          )}
-          <p className="text-[10px] text-walmart-gray-300 text-center mt-3">
-            {activeTab==='card'?'The highlighted card reflects your configuration':activeTab==='details'?'Action Details screen preview':activeTab==='goals'?'Goal tracking screen preview':'Goal Details screen preview'}
-          </p>
+          {activeTab==='card' ? <PhoneScreen fields={fields}/> : activeTab==='details' ? <DetailsPhoneScreen d={details}/> : activeTab==='goals' ? <GoalPhoneScreen g={goals}/> : <GoalDetailsPhoneScreen gd={goalDetails}/>}
+          <p className="text-[10px] text-walmart-gray-300 text-center mt-3">{activeTab==='card'?'The highlighted card reflects your configuration':activeTab==='details'?'Action Details screen preview':activeTab==='goals'?'Goal tracking screen preview':'Goal Details screen preview'}</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════ APP ═══════ */
+function App() {
+  const [view,setView]=useState('home');
+  const [experiences,setExperiences]=useState(()=>{try{const s=localStorage.getItem('axb_experiences');return s?JSON.parse(s):[];}catch(e){return[];}});
+  const [currentExp,setCurrentExp]=useState(null);
+  const [newName,setNewName]=useState('');
+
+  const saveToStorage=(list)=>{setExperiences(list);try{localStorage.setItem('axb_experiences',JSON.stringify(list));}catch(e){}};
+
+  const startNew=()=>{
+    if(!newName.trim())return;
+    const exp={id:Date.now(),name:newName.trim(),fields:null,details:null,goals:null,goalDetails:null,createdAt:Date.now(),updatedAt:Date.now()};
+    setCurrentExp(exp);
+    setNewName('');
+    setView('builder');
+  };
+
+  const editExp=(exp)=>{setCurrentExp(JSON.parse(JSON.stringify(exp)));setView('builder');};
+
+  const deleteExp=(id)=>{saveToStorage(experiences.filter(e=>e.id!==id));};
+
+  const handleSave=(updated)=>{
+    const exists=experiences.find(e=>e.id===updated.id);
+    const list=exists?experiences.map(e=>e.id===updated.id?updated:e):[...experiences,updated];
+    saveToStorage(list);
+    setView('home');
+    setCurrentExp(null);
+  };
+
+  if(view==='builder'&&currentExp) return <ExperienceBuilder experience={currentExp} onSave={handleSave} onBack={()=>{setView('home');setCurrentExp(null);}}/>;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <header className="bg-white border-b border-walmart-gray-100 px-6">
+        <div className="max-w-[1200px] mx-auto flex items-center justify-between py-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={20} color="white"/></div>
+            <div>
+              <h1 className="text-xl font-bold text-walmart-gray-800">Action Experience Builder</h1>
+              <p className="text-[12px] text-walmart-gray-400">Create and manage action experiences</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-[1200px] mx-auto px-6 py-8">
+        {view==='home' ? (<>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-[15px] font-bold text-walmart-gray-700">Your Experiences <span className="font-normal text-walmart-gray-400">({experiences.length})</span></h2>
+            <button onClick={()=>setView('naming')} className="px-5 py-2.5 rounded-lg text-sm font-bold bg-walmart-blue text-white hover:bg-walmart-blue-dark flex items-center gap-2 shadow-sm"><I.Plus/> Add New Experience</button>
+          </div>
+
+          {experiences.length===0 ? (
+            <div className="text-center py-20">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{background:'#E6F1FC'}}><I.Layers s={28}/></div>
+              <h3 className="text-lg font-bold text-walmart-gray-700 mb-1">No experiences yet</h3>
+              <p className="text-sm text-walmart-gray-400 mb-6">Create your first action experience to get started.</p>
+              <button onClick={()=>setView('naming')} className="px-6 py-3 rounded-lg text-sm font-bold bg-walmart-blue text-white hover:bg-walmart-blue-dark inline-flex items-center gap-2"><I.Plus/> Add New Experience</button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {experiences.map(exp=>(
+                <div key={exp.id} className="bg-white rounded-xl border border-walmart-gray-100 p-5 hover:shadow-md transition-shadow cursor-pointer group" onClick={()=>editExp(exp)}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={18} color="white"/></div>
+                    <button onClick={e=>{e.stopPropagation();if(confirm('Delete "'+exp.name+'"?'))deleteExp(exp.id);}} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-walmart-error-light text-walmart-gray-400 hover:text-walmart-error"><I.X/></button>
+                  </div>
+                  <h3 className="text-[15px] font-bold text-walmart-gray-700 mb-1">{exp.name}</h3>
+                  <p className="text-[12px] text-walmart-gray-400">Last edited {new Date(exp.updatedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{background:exp.fields?'#E8F5E9':'#F1F1F2',color:exp.fields?'#2A8703':'#74767C'}}>Card</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{background:exp.details?'#E8F5E9':'#F1F1F2',color:exp.details?'#2A8703':'#74767C'}}>Details</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{background:exp.goals?'#E8F5E9':'#F1F1F2',color:exp.goals?'#2A8703':'#74767C'}}>Goal</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{background:exp.goalDetails?'#E8F5E9':'#F1F1F2',color:exp.goalDetails?'#2A8703':'#74767C'}}>Goal Details</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>) : view==='naming' ? (
+          <div className="max-w-lg mx-auto pt-16">
+            <div className="bg-white rounded-2xl border border-walmart-gray-100 p-8 shadow-sm">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={22} color="white"/></div>
+              <h2 className="text-xl font-bold text-walmart-gray-800 mb-1">New Action Experience</h2>
+              <p className="text-sm text-walmart-gray-400 mb-6">Give your experience a name to get started.</p>
+              <label className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider block mb-2">Experience Name</label>
+              <input type="text" value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&startNew()} placeholder="e.g. Stock D80 Service Deli, Topstock, VizPick" autoFocus className="w-full text-base border-2 border-walmart-gray-200 rounded-xl px-4 py-3 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+              <div className="flex items-center gap-3 mt-6">
+                <button onClick={()=>{setView('home');setNewName('');}} className="flex-1 py-3 rounded-xl text-sm font-semibold text-walmart-gray-600 hover:bg-walmart-gray-50 border border-walmart-gray-200">Cancel</button>
+                <button onClick={startNew} disabled={!newName.trim()} className={`flex-1 py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 ${newName.trim()?'bg-walmart-blue hover:bg-walmart-blue-dark':'bg-walmart-gray-200 cursor-not-allowed'}`}>Next <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
