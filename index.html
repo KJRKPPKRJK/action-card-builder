@@ -1151,18 +1151,13 @@ function App() {
       .catch(()=>{});
   },[]);
 
-  // Save to Google Sheets
+  // Save to Google Sheets (no-cors POST avoids 302 redirect converting POST→GET)
   const syncToSheet=(exps,ranks,assigns)=>{
     setSyncing(true);
     const payload=JSON.stringify({experiences:exps,rankings:ranks,assignments:assigns});
-    fetch(SHEET_API,{method:'POST',body:payload,headers:{'Content-Type':'text/plain'},redirect:'follow'})
+    fetch(SHEET_API,{method:'POST',body:payload,headers:{'Content-Type':'text/plain'},mode:'no-cors'})
       .then(()=>{setSyncing(false);setLastSync(new Date());})
-      .catch(()=>{
-        // Fallback: use no-cors mode (can't read response but data still saves)
-        fetch(SHEET_API,{method:'POST',body:payload,mode:'no-cors'})
-          .then(()=>{setSyncing(false);setLastSync(new Date());})
-          .catch(()=>setSyncing(false));
-      });
+      .catch(()=>setSyncing(false));
   };
   const forceSync=()=>syncToSheet(experiences,rankings,assignments);
 
