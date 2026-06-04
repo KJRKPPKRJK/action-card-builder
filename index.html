@@ -1180,7 +1180,27 @@ function App() {
   };
 
   const editExp=(exp)=>{setCurrentExp(JSON.parse(JSON.stringify(exp)));setView('builder');};
-  const deleteExp=(id)=>{saveToStorage(experiences.filter(e=>e.id!==id));};
+  const deleteExp=(id)=>{
+    const exp=experiences.find(e=>e.id===id);
+    const newExps=experiences.filter(e=>e.id!==id);
+    // Clean up rankings and assignments for this experience's actions
+    const newRankings={...rankings};
+    const newAssignments={...assignments};
+    if(exp&&exp.actions){
+      exp.actions.forEach((_,idx)=>{
+        const key=`${id}-${idx}`;
+        delete newRankings[key];
+        delete newAssignments[key];
+      });
+    }
+    setExperiences(newExps);
+    setRankings(newRankings);
+    setAssignments(newAssignments);
+    try{localStorage.setItem('axb_experiences',JSON.stringify(newExps));}catch(e){}
+    try{localStorage.setItem('axb_rankings',JSON.stringify(newRankings));}catch(e){}
+    try{localStorage.setItem('axb_assignments',JSON.stringify(newAssignments));}catch(e){}
+    syncToSheet(newExps,newRankings,newAssignments);
+  };
 
   const handleSave=(updated)=>{
     const exists=experiences.find(e=>e.id===updated.id);
@@ -1266,7 +1286,7 @@ function App() {
                   <div key={exp.id} className="bg-white rounded-xl border border-walmart-gray-100 p-5 hover:shadow-md transition-shadow cursor-pointer group" onClick={()=>editExp(exp)}>
                     <div className="flex items-start justify-between mb-3">
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={18} color="white"/></div>
-                      <button onClick={e=>{e.stopPropagation();if(confirm('Delete "'+exp.name+'"?'))deleteExp(exp.id);}} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-walmart-error-light text-walmart-gray-400 hover:text-walmart-error"><I.X/></button>
+                      <button onClick={e=>{e.stopPropagation();if(confirm('Delete "'+exp.name+'"? This will also remove it from Intelligence rankings and assignments.'))deleteExp(exp.id);}} className="p-1.5 rounded-lg hover:bg-walmart-error-light text-walmart-gray-300 hover:text-walmart-error transition-colors" title="Delete experience"><I.X/></button>
                     </div>
                     <h3 className="text-[15px] font-bold text-walmart-gray-700 mb-1">{exp.name}</h3>
                     <p className="text-[12px] text-walmart-gray-400">Last edited {new Date(exp.updatedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p>
