@@ -56,7 +56,7 @@
 <body class="bg-gray-50 min-h-screen">
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useRef } = React;
+const { useState, useEffect, useRef } = React;
 
 /* ═══════ ICONS ═══════ */
 const I={
@@ -161,7 +161,7 @@ function StaticCard({ cat, title, meta, badge, badgeColor, moreBtn }) {
 }
 
 /* ═══════ FULL PHONE SCREEN ═══════ */
-function PhoneScreen({ fields }) {
+function PhoneScreen({ fields, actionCards, activeCardIdx }) {
   return (
     <div className="phone-frame">
       <div className="phone-scroll" style={{background:'#F8F8F8'}}>
@@ -262,30 +262,22 @@ function PhoneScreen({ fields }) {
 
           {/* ── Action cards list (flat, separated by dividers) ── */}
           <div className="mt-2">
-            {/* Card 1: Refrigeration alarm */}
+            {/* Static: Refrigeration alarm */}
             <StaticCard cat="Refrigeration alarm" title="High Temperature Alarm in Produce A2-2" badge="Active alarm" moreBtn={true} meta={['Aisle A2-2']} />
             <div className="card-divider"/>
 
-            {/* ★ Card 2: THE CONFIGURABLE CARD ★ */}
-            <ActionCard fields={fields} highlighted={true} />
-            <div className="card-divider"/>
+            {/* ★ CONFIGURABLE ACTION CARDS ★ */}
+            {(actionCards||[fields]).map((cardFields,idx)=>(
+              <React.Fragment key={idx}>
+                <ActionCard fields={cardFields} highlighted={idx===activeCardIdx} />
+                <div className="card-divider"/>
+              </React.Fragment>
+            ))}
 
-            {/* Card 3: Topstock */}
-            <StaticCard cat="Topstock" title="Topstock in aisle F8" meta={['Aisle F8']} />
-            <div className="card-divider"/>
-
-            {/* Card 4: VizPick */}
-            <StaticCard cat="VizPick Scan & Pick" title="Scan and pick in aisle 008" meta={['Backroom aisle 008','Me, Jordan Taylor']} />
-            <div className="card-divider"/>
-
-            {/* Card 5: Notes */}
+            {/* Static cards */}
             <StaticCard cat="Notes" title="Fix DSL labels in A24" badge="Due today" meta={['Daily tour']} />
             <div className="card-divider"/>
-
-            {/* Card 6: Notes */}
             <StaticCard cat="Notes" title="Clean underneath produce bins" badge="Due today" meta={['Daily tour','Me, Jordan Taylor']} />
-
-            {/* Card 7: Learning */}
             <StaticCard cat="Learning" title="Hazardous waste foundations" badge="Overdue" meta={['Store essentials']} />
           </div>
         </div>
@@ -944,18 +936,44 @@ function GoalDetailsPhoneScreen({ gd }) {
 /* ═══════ EXPERIENCE BUILDER (4-tab editor) ═══════ */
 function ExperienceBuilder({ experience, onSave, onBack }) {
   const [activeTab,setActiveTab]=useState('card');
-  const [fields,setFields]=useState(()=>experience.fields||DEFAULT_FIELDS.map(id=>({id,enabled:true,value:FIELD_REGISTRY[id].defaultValue})));
-  const [details,setDetails]=useState(()=>experience.details||JSON.parse(JSON.stringify(DEFAULT_DETAILS)));
+  const makeDefaultFields=()=>DEFAULT_FIELDS.map(id=>({id,enabled:true,value:FIELD_REGISTRY[id].defaultValue}));
+  const makeDefaultAction=()=>({
+    fields:makeDefaultFields(),
+    details:JSON.parse(JSON.stringify(DEFAULT_DETAILS)),
+    goals:JSON.parse(JSON.stringify(DEFAULT_GOALS)),
+    goalDetails:JSON.parse(JSON.stringify(DEFAULT_GOAL_DETAILS)),
+  });
+
+  const [actions,setActions]=useState(()=>{
+    if(experience.actions) return experience.actions;
+    if(experience.actionCards) return experience.actionCards.map(fields=>({fields,details:JSON.parse(JSON.stringify(DEFAULT_DETAILS)),goals:JSON.parse(JSON.stringify(DEFAULT_GOALS)),goalDetails:JSON.parse(JSON.stringify(DEFAULT_GOAL_DETAILS))}));
+    if(experience.fields) return [{fields:experience.fields,details:experience.details||JSON.parse(JSON.stringify(DEFAULT_DETAILS)),goals:experience.goals||JSON.parse(JSON.stringify(DEFAULT_GOALS)),goalDetails:experience.goalDetails||JSON.parse(JSON.stringify(DEFAULT_GOAL_DETAILS))}];
+    return [makeDefaultAction()];
+  });
+  const [activeCardIdx,setActiveCardIdx]=useState(0);
+  const cur=actions[activeCardIdx]||makeDefaultAction();
+  const fields=cur.fields;
+  const details=cur.details;
+  const goals=cur.goals;
+  const goalDetails=cur.goalDetails;
+
+  const updateAction=(updater)=>setActions(prev=>{const n=[...prev];n[activeCardIdx]=typeof updater==='function'?updater(n[activeCardIdx]):updater;return n;});
+  const setFields=(updater)=>updateAction(a=>({...a,fields:typeof updater==='function'?updater(a.fields):updater}));
+  const setDetails=(updater)=>updateAction(a=>({...a,details:typeof updater==='function'?updater(a.details):updater}));
+  const setGoals=(updater)=>updateAction(a=>({...a,goals:typeof updater==='function'?updater(a.goals):updater}));
+  const setGoalDetails=(updater)=>updateAction(a=>({...a,goalDetails:typeof updater==='function'?updater(a.goalDetails):updater}));
+
   const ud=(k,v)=>setDetails(p=>({...p,[k]:v}));
-  const [goals,setGoals]=useState(()=>experience.goals||JSON.parse(JSON.stringify(DEFAULT_GOALS)));
   const ug=(k,v)=>setGoals(p=>({...p,[k]:v}));
-  const [goalDetails,setGoalDetails]=useState(()=>experience.goalDetails||JSON.parse(JSON.stringify(DEFAULT_GOAL_DETAILS)));
   const ugd=(k,v)=>setGoalDetails(p=>({...p,[k]:v}));
+
+  const addActionCard=()=>{setActions(prev=>[...prev,makeDefaultAction()]);setActiveCardIdx(actions.length);};
+  const removeActionCard=(idx)=>{if(actions.length<=1)return;setActions(prev=>prev.filter((_,i)=>i!==idx));setActiveCardIdx(i=>i>=idx?Math.max(0,i-1):i);};
   const [copied,setCopied]=useState(false);
 
   const updateField=(i,u)=>setFields(p=>p.map((f,j)=>j===i?u:f));
   const moveField=(i,d)=>setFields(p=>{const n=[...p];const t=i+d;if(t<0||t>=n.length)return p;[n[i],n[t]]=[n[t],n[i]];return n});
-  const resetCardFields=()=>setFields(DEFAULT_FIELDS.map(id=>({id,enabled:true,value:FIELD_REGISTRY[id].defaultValue})));
+  const resetCurrentAction=()=>updateAction(()=>makeDefaultAction());
   const updateStep=(i,s)=>ud('steps',details.steps.map((st,j)=>j===i?s:st));
   const removeStep=i=>ud('steps',details.steps.filter((_,j)=>j!==i));
   const moveStep=(i,dir)=>{const n=[...details.steps];const t=i+dir;if(t<0||t>=n.length)return;[n[i],n[t]]=[n[t],n[i]];ud('steps',n)};
@@ -967,16 +985,7 @@ function ExperienceBuilder({ experience, onSave, onBack }) {
   const gdRemoveProgressRow=i=>ugd('progressRows',goalDetails.progressRows.filter((_,j)=>j!==i));
   const gdAddProgressRow=()=>ugd('progressRows',[...goalDetails.progressRows,{name:'Name/area',timeframe:'Timeframe',label:'Label'}]);
 
-  const exportJSON=()=>{
-    if(activeTab==='card'){
-      const parseA=s=>{const idx=s.indexOf('::');return idx>-1?{label:s.slice(0,idx),value:s.slice(idx+2)}:{value:s}};
-      return JSON.stringify({fields:fields.filter(f=>f.enabled).map(f=>({type:f.id,value:f.id==='attributes'?f.value.split('||').filter(Boolean).map(parseA):f.value}))},null,2);
-    } else if(activeTab==='details') return JSON.stringify(details,null,2);
-    else if(activeTab==='goals') return JSON.stringify(goals,null,2);
-    else return JSON.stringify(goalDetails,null,2);
-  };
-  const copyConfig=()=>{navigator.clipboard.writeText(exportJSON());setCopied(true);setTimeout(()=>setCopied(false),2000)};
-  const handleSave=()=>onSave({...experience,fields,details,goals,goalDetails,updatedAt:Date.now()});
+  const handleSave=()=>onSave({...experience,actions,updatedAt:Date.now()});
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -1009,10 +1018,40 @@ function ExperienceBuilder({ experience, onSave, onBack }) {
 
       <div className="max-w-[1400px] mx-auto flex gap-6 p-6 items-start">
         <div className="flex-1 min-w-0 config-scroll space-y-5 pb-12 pr-2">
+          {actions.length>1 && (
+          <div className="bg-white rounded-xl border border-walmart-gray-100 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Actions <span className="text-walmart-gray-300 normal-case font-normal">({actions.length})</span></h3>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {actions.map((action,idx)=>{
+                const cardName=action.fields.find(f=>f.id==='actionName');
+                return <button key={idx} onClick={()=>setActiveCardIdx(idx)} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${idx===activeCardIdx?'bg-walmart-blue text-white':'bg-walmart-gray-50 text-walmart-gray-500 hover:bg-walmart-gray-100 border border-walmart-gray-200'}`}>
+                  {cardName&&cardName.value?cardName.value:`Action ${idx+1}`}
+                </button>;
+              })}
+            </div>
+          </div>
+          )}
           {activeTab==='card' ? (<>
             <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Action Cards <span className="text-walmart-gray-300 normal-case font-normal">({actions.length})</span></h3>
+                <button onClick={addActionCard} className="text-[11px] font-semibold text-walmart-blue hover:text-walmart-blue-dark flex items-center gap-1"><I.Plus/> Add more actions</button>
+              </div>
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                {actions.map((action,idx)=>{
+                  const cardName=action.fields.find(f=>f.id==='actionName');
+                  return <div key={idx} className="flex items-center gap-1">
+                    <button onClick={()=>setActiveCardIdx(idx)} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${idx===activeCardIdx?'bg-walmart-blue text-white':'bg-walmart-gray-50 text-walmart-gray-500 hover:bg-walmart-gray-100 border border-walmart-gray-200'}`}>
+                      {cardName&&cardName.value?cardName.value:`Action ${idx+1}`}
+                    </button>
+                    {actions.length>1&&<button onClick={()=>removeActionCard(idx)} className="text-walmart-gray-300 hover:text-walmart-error p-0.5"><I.X/></button>}
+                  </div>;
+                })}
+              </div>
               <div className="flex items-center justify-between mb-2"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Card Fields</h3><span className="text-[11px] text-walmart-gray-300">{fields.filter(f=>f.enabled).length} of {fields.length} active</span></div>
-              <div className="space-y-2">{fields.map((f,i)=><FieldRow key={`${f.id}-${i}`} field={f} index={i} total={fields.length} onUpdate={u=>updateField(i,u)} onMove={moveField}/>)}</div>
+              <div className="space-y-2">{fields.map((f,i)=><FieldRow key={`${f.id}-${i}-${activeCardIdx}`} field={f} index={i} total={fields.length} onUpdate={u=>updateField(i,u)} onMove={moveField}/>)}</div>
             </div>
           </>) : activeTab==='details' ? (<>
             <div className="bg-white rounded-xl border border-walmart-gray-100 p-4 space-y-3"><h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Action Name</h3><input type="text" value={details.actionName} onChange={e=>ud('actionName',e.target.value)} className="w-full text-sm border border-walmart-gray-200 rounded-lg px-3 py-2 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/></div>
@@ -1073,14 +1112,9 @@ function ExperienceBuilder({ experience, onSave, onBack }) {
         <div className="flex-shrink-0 sticky top-24">
           <div className="flex items-center justify-between mb-3 px-1">
             <h3 className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Live Preview</h3>
-            <button onClick={()=>{
-              if(activeTab==='card') resetCardFields();
-              else if(activeTab==='details') setDetails(JSON.parse(JSON.stringify(DEFAULT_DETAILS)));
-              else if(activeTab==='goals') setGoals(JSON.parse(JSON.stringify(DEFAULT_GOALS)));
-              else setGoalDetails(JSON.parse(JSON.stringify(DEFAULT_GOAL_DETAILS)));
-            }} className="text-[11px] text-walmart-gray-400 hover:text-walmart-blue flex items-center gap-1"><I.Refresh/> Reset</button>
+            <button onClick={resetCurrentAction} className="text-[11px] text-walmart-gray-400 hover:text-walmart-blue flex items-center gap-1"><I.Refresh/> Reset</button>
           </div>
-          {activeTab==='card' ? <PhoneScreen fields={fields}/> : activeTab==='details' ? <DetailsPhoneScreen d={details}/> : activeTab==='goals' ? <GoalPhoneScreen g={goals}/> : <GoalDetailsPhoneScreen gd={goalDetails}/>}
+          {activeTab==='card' ? <PhoneScreen fields={fields} actionCards={actions.map(a=>a.fields)} activeCardIdx={activeCardIdx}/> : activeTab==='details' ? <DetailsPhoneScreen d={details}/> : activeTab==='goals' ? <GoalPhoneScreen g={goals}/> : <GoalDetailsPhoneScreen gd={goalDetails}/>}
           <p className="text-[10px] text-walmart-gray-300 text-center mt-3">{activeTab==='card'?'The highlighted card reflects your configuration':activeTab==='details'?'Action Details screen preview':activeTab==='goals'?'Goal tracking screen preview':'Goal Details screen preview'}</p>
         </div>
       </div>
@@ -1089,24 +1123,63 @@ function ExperienceBuilder({ experience, onSave, onBack }) {
 }
 
 /* ═══════ APP ═══════ */
+const SHEET_API='https://script.google.com/macros/s/AKfycbwPcyL1EMCRVfaFIUQU63KCw_HHkBWWSbms8UQ_DJt7IhEp4PBDYDOgrAtBd6fUIh7IvQ/exec';
+
 function App() {
   const [view,setView]=useState('home');
+  const [mainTab,setMainTab]=useState('experience');
   const [experiences,setExperiences]=useState(()=>{try{const s=localStorage.getItem('axb_experiences');return s?JSON.parse(s):[];}catch(e){return[];}});
+  const [rankings,setRankings]=useState(()=>{try{const s=localStorage.getItem('axb_rankings');return s?JSON.parse(s):{};}catch(e){return{};}});
+  const [assignments,setAssignments]=useState(()=>{try{const s=localStorage.getItem('axb_assignments');return s?JSON.parse(s):{};}catch(e){return{};}});
+  const [intelTab,setIntelTab]=useState('prioritization');
   const [currentExp,setCurrentExp]=useState(null);
   const [newName,setNewName]=useState('');
+  const [syncing,setSyncing]=useState(false);
+  const [lastSync,setLastSync]=useState(null);
+  const TEAMS=['Asset Protection','Digital','Deli/Bakery','Food/Consumables','Health & Beauty','Meat/Produce','Salesfloor','Frontend','Fuel','Auto Care Center','Entertainment','Fashion','Hardlines','Home','Seasonal','Management','Pharmacy','Stocking Day 1','Stocking Day 2','Stocking ON','Support','Vision Center'];
 
-  const saveToStorage=(list)=>{setExperiences(list);try{localStorage.setItem('axb_experiences',JSON.stringify(list));}catch(e){}};
+  // Load from Google Sheets on mount
+  useEffect(()=>{
+    fetch(SHEET_API)
+      .then(r=>r.json())
+      .then(data=>{
+        if(data&&data.experiences){setExperiences(data.experiences);try{localStorage.setItem('axb_experiences',JSON.stringify(data.experiences));}catch(e){}}
+        if(data&&data.rankings){setRankings(data.rankings);try{localStorage.setItem('axb_rankings',JSON.stringify(data.rankings));}catch(e){}}
+        if(data&&data.assignments){setAssignments(data.assignments);try{localStorage.setItem('axb_assignments',JSON.stringify(data.assignments));}catch(e){}}
+        setLastSync(new Date());
+      })
+      .catch(()=>{});
+  },[]);
+
+  // Save to Google Sheets
+  const syncToSheet=(exps,ranks,assigns)=>{
+    setSyncing(true);
+    const payload=JSON.stringify({experiences:exps,rankings:ranks,assignments:assigns});
+    fetch(SHEET_API,{method:'POST',body:payload,headers:{'Content-Type':'text/plain'},redirect:'follow'})
+      .then(()=>{setSyncing(false);setLastSync(new Date());})
+      .catch(()=>{
+        // Fallback: use no-cors mode (can't read response but data still saves)
+        fetch(SHEET_API,{method:'POST',body:payload,mode:'no-cors'})
+          .then(()=>{setSyncing(false);setLastSync(new Date());})
+          .catch(()=>setSyncing(false));
+      });
+  };
+  const forceSync=()=>syncToSheet(experiences,rankings,assignments);
+
+  const saveToStorage=(list)=>{setExperiences(list);try{localStorage.setItem('axb_experiences',JSON.stringify(list));}catch(e){} syncToSheet(list,rankings,assignments);};
+  const saveRankings=(r)=>{setRankings(r);try{localStorage.setItem('axb_rankings',JSON.stringify(r));}catch(e){} syncToSheet(experiences,r,assignments);};
+  const saveAssignments=(a)=>{setAssignments(a);try{localStorage.setItem('axb_assignments',JSON.stringify(a));}catch(e){} syncToSheet(experiences,rankings,a);};
+  const setAssignment=(key,val)=>{const a={...assignments};a[key]=val;saveAssignments(a);};
 
   const startNew=()=>{
     if(!newName.trim())return;
-    const exp={id:Date.now(),name:newName.trim(),fields:null,details:null,goals:null,goalDetails:null,createdAt:Date.now(),updatedAt:Date.now()};
+    const exp={id:Date.now(),name:newName.trim(),actions:null,createdAt:Date.now(),updatedAt:Date.now()};
     setCurrentExp(exp);
     setNewName('');
     setView('builder');
   };
 
   const editExp=(exp)=>{setCurrentExp(JSON.parse(JSON.stringify(exp)));setView('builder');};
-
   const deleteExp=(id)=>{saveToStorage(experiences.filter(e=>e.id!==id));};
 
   const handleSave=(updated)=>{
@@ -1117,71 +1190,357 @@ function App() {
     setCurrentExp(null);
   };
 
+  const allActions=[];
+  experiences.forEach(exp=>{
+    if(exp.actions){
+      exp.actions.forEach((action,idx)=>{
+        const nameField=action.fields.find(f=>f.id==='actionName');
+        allActions.push({key:`${exp.id}-${idx}`,expId:exp.id,expName:exp.name,actionName:nameField&&nameField.value?nameField.value:`Action ${idx+1}`,action:action});
+      });
+    }
+  });
+
+  const setRank=(actionKey,section,val)=>{
+    const r={...rankings};
+    if(!r[actionKey])r[actionKey]={forYou:'',todaysPlan:''};
+    r[actionKey]={...r[actionKey],[section]:val};
+    saveRankings(r);
+  };
+
+  const maxRank=Math.max(allActions.length,20);
+  const rankOptions=Array.from({length:maxRank},(_, i)=>i+1);
+
   if(view==='builder'&&currentExp) return <ExperienceBuilder experience={currentExp} onSave={handleSave} onBack={()=>{setView('home');setCurrentExp(null);}}/>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <header className="bg-white border-b border-walmart-gray-100 px-6">
-        <div className="max-w-[1200px] mx-auto flex items-center justify-between py-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={20} color="white"/></div>
-            <div>
-              <h1 className="text-xl font-bold text-walmart-gray-800">Action Experience Builder</h1>
-              <p className="text-[12px] text-walmart-gray-400">Create and manage action experiences</p>
+        <div className="max-w-[1200px] mx-auto">
+          <div className="flex items-center justify-between py-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={20} color="white"/></div>
+              <div>
+                <h1 className="text-xl font-bold text-walmart-gray-800">Action Experience Builder</h1>
+                <p className="text-[12px] text-walmart-gray-400">Create and manage action experiences</p>
+              </div>
             </div>
+            <div className="flex items-center gap-2">
+              {syncing ? (
+                <span className="text-[11px] text-walmart-gray-400 flex items-center gap-1"><I.Refresh/> Syncing...</span>
+              ) : lastSync ? (
+                <span className="text-[11px] text-walmart-gray-300 flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{background:'#6DD400'}}/> Synced</span>
+              ) : null}
+              <button onClick={()=>{fetch(SHEET_API).then(r=>r.json()).then(data=>{if(data&&data.experiences){setExperiences(data.experiences);}if(data&&data.rankings){setRankings(data.rankings);}if(data&&data.assignments){setAssignments(data.assignments);}setLastSync(new Date());}).catch(()=>{});}} className="text-[11px] text-walmart-gray-400 hover:text-walmart-blue flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-walmart-gray-50"><I.Refresh/> Refresh</button>
+              <button onClick={forceSync} className="text-[11px] text-walmart-blue hover:text-walmart-blue-dark flex items-center gap-1 px-3 py-1 rounded-lg border border-walmart-blue/30 hover:bg-walmart-blue-light font-semibold"><I.CheckCircle s={12}/> Sync Now</button>
+            </div>
+          </div>
+          <div className="flex gap-0 -mb-px">
+            <button onClick={()=>{setMainTab('experience');}} className={`px-6 py-2.5 text-[13px] font-semibold border-b-2 transition-all flex items-center gap-2 ${mainTab==='experience'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}>
+              <I.Layers s={14}/> Add Experience
+            </button>
+            <button onClick={()=>{setMainTab('intelligence');}} className={`px-6 py-2.5 text-[13px] font-semibold border-b-2 transition-all flex items-center gap-2 ${mainTab==='intelligence'?'border-walmart-blue text-walmart-blue':'border-transparent text-walmart-gray-400 hover:text-walmart-gray-600'}`}>
+              <I.BarChart s={14}/> Intelligence
+            </button>
           </div>
         </div>
       </header>
 
       <div className="max-w-[1200px] mx-auto px-6 py-8">
-        {view==='home' ? (<>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[15px] font-bold text-walmart-gray-700">Your Experiences <span className="font-normal text-walmart-gray-400">({experiences.length})</span></h2>
-            <button onClick={()=>setView('naming')} className="px-5 py-2.5 rounded-lg text-sm font-bold bg-walmart-blue text-white hover:bg-walmart-blue-dark flex items-center gap-2 shadow-sm"><I.Plus/> Add New Experience</button>
-          </div>
+        {mainTab==='experience' ? (<>
+          {view==='home' ? (<>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-[15px] font-bold text-walmart-gray-700">Your Experiences <span className="font-normal text-walmart-gray-400">({experiences.length})</span></h2>
+              <button onClick={()=>setView('naming')} className="px-5 py-2.5 rounded-lg text-sm font-bold bg-walmart-blue text-white hover:bg-walmart-blue-dark flex items-center gap-2 shadow-sm"><I.Plus/> Add New Experience</button>
+            </div>
 
-          {experiences.length===0 ? (
-            <div className="text-center py-20">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{background:'#E6F1FC'}}><I.Layers s={28}/></div>
-              <h3 className="text-lg font-bold text-walmart-gray-700 mb-1">No experiences yet</h3>
-              <p className="text-sm text-walmart-gray-400 mb-6">Create your first action experience to get started.</p>
-              <button onClick={()=>setView('naming')} className="px-6 py-3 rounded-lg text-sm font-bold bg-walmart-blue text-white hover:bg-walmart-blue-dark inline-flex items-center gap-2"><I.Plus/> Add New Experience</button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {experiences.map(exp=>(
-                <div key={exp.id} className="bg-white rounded-xl border border-walmart-gray-100 p-5 hover:shadow-md transition-shadow cursor-pointer group" onClick={()=>editExp(exp)}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={18} color="white"/></div>
-                    <button onClick={e=>{e.stopPropagation();if(confirm('Delete "'+exp.name+'"?'))deleteExp(exp.id);}} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-walmart-error-light text-walmart-gray-400 hover:text-walmart-error"><I.X/></button>
+            {experiences.length===0 ? (
+              <div className="text-center py-20">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{background:'#E6F1FC'}}><I.Layers s={28}/></div>
+                <h3 className="text-lg font-bold text-walmart-gray-700 mb-1">No experiences yet</h3>
+                <p className="text-sm text-walmart-gray-400 mb-6">Create your first action experience to get started.</p>
+                <button onClick={()=>setView('naming')} className="px-6 py-3 rounded-lg text-sm font-bold bg-walmart-blue text-white hover:bg-walmart-blue-dark inline-flex items-center gap-2"><I.Plus/> Add New Experience</button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {experiences.map(exp=>(
+                  <div key={exp.id} className="bg-white rounded-xl border border-walmart-gray-100 p-5 hover:shadow-md transition-shadow cursor-pointer group" onClick={()=>editExp(exp)}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={18} color="white"/></div>
+                      <button onClick={e=>{e.stopPropagation();if(confirm('Delete "'+exp.name+'"?'))deleteExp(exp.id);}} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-walmart-error-light text-walmart-gray-400 hover:text-walmart-error"><I.X/></button>
+                    </div>
+                    <h3 className="text-[15px] font-bold text-walmart-gray-700 mb-1">{exp.name}</h3>
+                    <p className="text-[12px] text-walmart-gray-400">Last edited {new Date(exp.updatedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p>
+                    <div className="flex items-center gap-2 mt-3">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{background:exp.actions?'#E8F5E9':'#F1F1F2',color:exp.actions?'#2A8703':'#74767C'}}>{exp.actions?`${exp.actions.length} action${exp.actions.length>1?'s':''}` :'No actions'}</span>
+                    </div>
                   </div>
-                  <h3 className="text-[15px] font-bold text-walmart-gray-700 mb-1">{exp.name}</h3>
-                  <p className="text-[12px] text-walmart-gray-400">Last edited {new Date(exp.updatedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p>
-                  <div className="flex items-center gap-2 mt-3">
-                    <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{background:exp.fields?'#E8F5E9':'#F1F1F2',color:exp.fields?'#2A8703':'#74767C'}}>Card</span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{background:exp.details?'#E8F5E9':'#F1F1F2',color:exp.details?'#2A8703':'#74767C'}}>Details</span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{background:exp.goals?'#E8F5E9':'#F1F1F2',color:exp.goals?'#2A8703':'#74767C'}}>Goal</span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{background:exp.goalDetails?'#E8F5E9':'#F1F1F2',color:exp.goalDetails?'#2A8703':'#74767C'}}>Goal Details</span>
-                  </div>
+                ))}
+              </div>
+            )}
+          </>) : view==='naming' ? (
+            <div className="max-w-lg mx-auto pt-16">
+              <div className="bg-white rounded-2xl border border-walmart-gray-100 p-8 shadow-sm">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={22} color="white"/></div>
+                <h2 className="text-xl font-bold text-walmart-gray-800 mb-1">New Action Experience</h2>
+                <p className="text-sm text-walmart-gray-400 mb-6">Give your experience a name to get started.</p>
+                <label className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider block mb-2">Experience Name</label>
+                <input type="text" value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&startNew()} placeholder="e.g. Stock D80 Service Deli, Topstock, VizPick" autoFocus className="w-full text-base border-2 border-walmart-gray-200 rounded-xl px-4 py-3 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
+                <div className="flex items-center gap-3 mt-6">
+                  <button onClick={()=>{setView('home');setNewName('');}} className="flex-1 py-3 rounded-xl text-sm font-semibold text-walmart-gray-600 hover:bg-walmart-gray-50 border border-walmart-gray-200">Cancel</button>
+                  <button onClick={startNew} disabled={!newName.trim()} className={`flex-1 py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 ${newName.trim()?'bg-walmart-blue hover:bg-walmart-blue-dark':'bg-walmart-gray-200 cursor-not-allowed'}`}>Next <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
                 </div>
-              ))}
-            </div>
-          )}
-        </>) : view==='naming' ? (
-          <div className="max-w-lg mx-auto pt-16">
-            <div className="bg-white rounded-2xl border border-walmart-gray-100 p-8 shadow-sm">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{background:'linear-gradient(180deg,#34B8FE,#1946E8)'}}><I.Zap s={22} color="white"/></div>
-              <h2 className="text-xl font-bold text-walmart-gray-800 mb-1">New Action Experience</h2>
-              <p className="text-sm text-walmart-gray-400 mb-6">Give your experience a name to get started.</p>
-              <label className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider block mb-2">Experience Name</label>
-              <input type="text" value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&startNew()} placeholder="e.g. Stock D80 Service Deli, Topstock, VizPick" autoFocus className="w-full text-base border-2 border-walmart-gray-200 rounded-xl px-4 py-3 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue"/>
-              <div className="flex items-center gap-3 mt-6">
-                <button onClick={()=>{setView('home');setNewName('');}} className="flex-1 py-3 rounded-xl text-sm font-semibold text-walmart-gray-600 hover:bg-walmart-gray-50 border border-walmart-gray-200">Cancel</button>
-                <button onClick={startNew} disabled={!newName.trim()} className={`flex-1 py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 ${newName.trim()?'bg-walmart-blue hover:bg-walmart-blue-dark':'bg-walmart-gray-200 cursor-not-allowed'}`}>Next <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
               </div>
             </div>
+          ) : null}
+        </>) : (
+          /* ═══════ INTELLIGENCE TAB ═══════ */
+          <div>
+            <div className="flex items-center gap-4 mb-6">
+              <button onClick={()=>setIntelTab('prioritization')} className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-all ${intelTab==='prioritization'?'bg-walmart-blue text-white':'bg-white text-walmart-gray-500 border border-walmart-gray-200 hover:bg-walmart-gray-50'}`}>Prioritization</button>
+              <button onClick={()=>setIntelTab('assignment')} className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-all ${intelTab==='assignment'?'bg-walmart-blue text-white':'bg-white text-walmart-gray-500 border border-walmart-gray-200 hover:bg-walmart-gray-50'}`}>Assignment</button>
+            </div>
+
+            {intelTab==='prioritization' ? (<>
+            <div className="mb-4">
+              <p className="text-[13px] text-walmart-gray-400">Rank your experiences for the For You action list and Today's Plan goal list. Lower number = higher priority.</p>
+            </div>
+
+            {experiences.length===0 ? (
+              <div className="text-center py-20">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{background:'#E6F1FC'}}><I.BarChart s={28}/></div>
+                <h3 className="text-lg font-bold text-walmart-gray-700 mb-1">No experiences to rank</h3>
+                <p className="text-sm text-walmart-gray-400 mb-6">Add experiences in the "Add Experience" tab first, then come here to set priorities.</p>
+                <button onClick={()=>setMainTab('experience')} className="px-6 py-3 rounded-lg text-sm font-bold bg-walmart-blue text-white hover:bg-walmart-blue-dark inline-flex items-center gap-2"><I.Plus/> Go to Add Experience</button>
+              </div>
+            ) : (<>
+              <div className="bg-white rounded-xl border border-walmart-gray-100 overflow-hidden mb-8">
+                <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-walmart-gray-100" style={{background:'#F8F8F8'}}>
+                  <div className="col-span-3"><span className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Experience</span></div>
+                  <div className="col-span-3"><span className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Action</span></div>
+                  <div className="col-span-3 text-center"><span className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">For You Rank</span></div>
+                  <div className="col-span-3 text-center"><span className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Today's Plan Rank</span></div>
+                </div>
+                {allActions.length===0 ? (
+                  <div className="px-6 py-8 text-center"><p className="text-[13px] text-walmart-gray-400 italic">Add experiences with actions first to set priorities.</p></div>
+                ) : allActions.map((a,i)=>{
+                  const r=rankings[a.key]||{forYou:'',todaysPlan:''};
+                  return (
+                    <div key={a.key} className={`grid grid-cols-12 gap-4 px-6 py-4 items-center ${i<allActions.length-1?'border-b border-walmart-gray-100':''}`}>
+                      <div className="col-span-3">
+                        <p className="text-[14px] font-semibold text-walmart-gray-700">{a.expName}</p>
+                      </div>
+                      <div className="col-span-3">
+                        <p className="text-[13px] text-walmart-gray-600">{a.actionName}</p>
+                      </div>
+                      <div className="col-span-3 flex justify-center">
+                        <select value={r.forYou} onChange={e=>setRank(a.key,'forYou',e.target.value)} className="w-20 text-[13px] border border-walmart-gray-200 rounded-lg px-2 py-1.5 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue bg-white text-center">
+                          <option value="">--</option>
+                          {rankOptions.map(n=><option key={n} value={n}>{n}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-span-3 flex justify-center">
+                        <select value={r.todaysPlan} onChange={e=>setRank(a.key,'todaysPlan',e.target.value)} className="w-20 text-[13px] border border-walmart-gray-200 rounded-lg px-2 py-1.5 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue bg-white text-center">
+                          <option value="">--</option>
+                          {rankOptions.map(n=><option key={n} value={n}>{n}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* ── Phone Previews: For You + Today's Plan ── */}
+              <h3 className="text-[13px] font-bold text-walmart-gray-700 mb-4">Preview — How actions & goals will be ranked</h3>
+              <div className="flex gap-8 justify-center flex-wrap">
+
+                {/* ═══ FOR YOU PHONE ═══ */}
+                {(()=>{
+                  const forYouRanked=allActions.filter(a=>(rankings[a.key]||{}).forYou).sort((a,b)=>Number((rankings[a.key]||{}).forYou)-Number((rankings[b.key]||{}).forYou));
+                  const rankedCards=forYouRanked.map(a=>a.action.fields);
+                  return (
+                    <div>
+                      <p className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider text-center mb-2">For You</p>
+                      <PhoneScreen fields={rankedCards[0]||[]} actionCards={rankedCards} activeCardIdx={-1}/>
+                    </div>
+                  );
+                })()}
+
+                {/* ═══ TODAY'S PLAN PHONE ═══ */}
+                {(()=>{
+                  const tpRanked=allActions.filter(a=>(rankings[a.key]||{}).todaysPlan).sort((a,b)=>Number((rankings[a.key]||{}).todaysPlan)-Number((rankings[b.key]||{}).todaysPlan));
+                  const tpGoals=tpRanked.filter(a=>a.action.goals&&a.action.goals.goalName).map(a=>({name:a.action.goals.goalName,expName:a.expName}));
+                  return (
+                    <div>
+                      <p className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider text-center mb-2">Today's Plan</p>
+                      <div className="phone-frame">
+                        <div className="phone-scroll" style={{background:'#F8F8F8'}}>
+                          {/* Blue header */}
+                          <div style={{background:'#0071DC'}}>
+                            <div className="flex items-center justify-between px-6 pt-3">
+                              <span className="text-[13px] font-semibold text-white">9:41</span>
+                              <div className="flex items-center gap-1.5">
+                                <svg width="16" height="12" viewBox="0 0 16 12" fill="white"><rect x="0" y="3" width="3" height="9" rx=".5" opacity=".3"/><rect x="4.5" y="2" width="3" height="10" rx=".5" opacity=".5"/><rect x="9" y="1" width="3" height="11" rx=".5" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="12" rx=".5"/></svg>
+                                <svg width="15" height="12" viewBox="0 0 15 12" fill="white"><path d="M7.5 3.6C9.3 3.6 10.9 4.3 12 5.5L13.4 4.1C11.9 2.5 9.8 1.5 7.5 1.5C5.2 1.5 3.1 2.5 1.6 4.1L3 5.5C4.1 4.3 5.7 3.6 7.5 3.6Z" opacity=".5"/><path d="M7.5 6.8C8.6 6.8 9.5 7.2 10.2 7.9L11.6 6.5C10.5 5.5 9.1 4.8 7.5 4.8C5.9 4.8 4.5 5.5 3.4 6.5L4.8 7.9C5.5 7.2 6.4 6.8 7.5 6.8Z"/><circle cx="7.5" cy="10.5" r="1.5"/></svg>
+                                <div className="w-6 h-3 border border-white/60 rounded-sm relative"><div className="absolute inset-0.5 bg-white rounded-[1px]" style={{width:'70%'}}/></div>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between px-4 mt-2 pb-4">
+                              <div className="flex items-center gap-3">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                                <span className="text-[18px] font-bold text-white">Today's Plan</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold" style={{background:'#CCE3F8',color:'#041E42'}}>AC</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Stocking Day pill */}
+                          <div style={{background:'#0071DC'}} className="px-4 pb-4">
+                            <div className="px-4 py-2 rounded-full" style={{background:'#004F9A'}}>
+                              <span className="text-[13px] font-semibold text-white">Stocking Day</span>
+                            </div>
+                          </div>
+
+                          {/* Today's summary */}
+                          <div style={{background:'#fff'}} className="px-4 pt-4 pb-4">
+                            <h2 className="text-[16px] font-bold mb-3" style={{color:'#2E2F32'}}>Today's summary</h2>
+                            <div className="rounded-xl border p-3 mb-3" style={{borderColor:'#E3E4E5'}}>
+                              <p className="text-[11px] font-bold uppercase" style={{color:'#74767C'}}>Outcome metrics</p>
+                              <div className="flex items-center gap-3 mt-2">
+                                <div className="flex-1"><p className="text-[11px]" style={{color:'#74767C'}}>25m ago</p><p className="text-[20px] font-bold" style={{color:'#2E2F32'}}>52.3k</p><p className="text-[11px]" style={{color:'#74767C'}}>Your team sales</p><p className="text-[11px]" style={{color:'#2A8703'}}>&#8593; 4.5%</p></div>
+                                <div className="flex-1"><p className="text-[11px]" style={{color:'#74767C'}}>7h ago</p><p className="text-[20px] font-bold" style={{color:'#2E2F32'}}>97.3%</p><p className="text-[11px]" style={{color:'#74767C'}}>FTPR</p><p className="text-[11px]" style={{color:'#2A8703'}}>&#8593; 1.2%</p></div>
+                                <div className="flex-1"><p className="text-[11px]" style={{color:'#74767C'}}>22m ago</p><p className="text-[20px] font-bold" style={{color:'#2E2F32'}}>17</p><p className="text-[11px]" style={{color:'#74767C'}}>Nil picks</p><p className="text-[11px]" style={{color:'#9B1419'}}>&#8595; 28</p></div>
+                              </div>
+                              <button className="cta-pill w-full mt-3">View all outcomes</button>
+                            </div>
+                            <div className="rounded-xl border p-3" style={{borderColor:'#E3E4E5'}}>
+                              <div className="flex items-center gap-2"><I.Store/><span className="text-[12px]" style={{color:'#515357'}}>Store #100</span></div>
+                              <div className="flex items-center justify-between mt-1">
+                                <p className="text-[12px]" style={{color:'#515357'}}>Stocking Day sales are 17.3% above plan</p>
+                                <I.ChevronRight s={14} c="#74767C"/>
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{height:8,background:'#F8F8F8'}}/>
+
+                          {/* Today's freight */}
+                          <div style={{background:'#fff'}} className="px-4 pt-4 pb-4">
+                            <h2 className="text-[16px] font-bold mb-1" style={{color:'#2E2F32'}}>Today's freight</h2>
+                            <p className="text-[12px]" style={{color:'#515357'}}>See trucks arriving in your store.</p>
+                            <div className="mt-3 space-y-1.5">
+                              <div className="flex items-center gap-2"><I.Truck/><span className="text-[12px] font-medium" style={{color:'#2E2F32'}}><b>3 of 5</b> warehouse trucks arrived</span></div>
+                              <div className="flex items-center gap-2"><I.Truck/><span className="text-[12px] font-medium" style={{color:'#2E2F32'}}><b>7 or 17</b> DSD trucks arrived</span></div>
+                            </div>
+                            <button className="cta-pill w-full mt-3">View today's freight</button>
+                          </div>
+                          <div style={{height:8,background:'#F8F8F8'}}/>
+
+                          {/* Track progress */}
+                          <div style={{background:'#fff'}} className="px-4 pt-4 pb-4">
+                            <h2 className="text-[16px] font-bold mb-1" style={{color:'#2E2F32'}}>Track progress</h2>
+                            <p className="text-[12px]" style={{color:'#515357'}}>Review the progress of your team and adjust as needed based on your expertise.</p>
+                            <div className="flex items-center gap-2 mt-3">
+                              <button className="px-4 py-2 rounded-full text-[12px] font-semibold" style={{background:'#2E2F32',color:'#fff'}}>View by work</button>
+                              <button className="px-4 py-2 rounded-full text-[12px] font-semibold border" style={{borderColor:'#E3E4E5',color:'#2E2F32'}}>View by associate</button>
+                            </div>
+                          </div>
+                          <div style={{height:8,background:'#F8F8F8'}}/>
+
+                          {/* Shift goals section */}
+                          <div style={{background:'#fff'}} className="px-4 pt-4 pb-4">
+                            <h2 className="text-[16px] font-bold mb-1" style={{color:'#2E2F32'}}>Shift goals <span className="font-normal" style={{color:'#74767C'}}>({tpGoals.length})</span></h2>
+                            <div className="flex items-center gap-1.5 mb-3 px-3 py-2 rounded-full" style={{background:'#F8F8F8'}}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                              <span className="text-[11px]" style={{color:'#515357'}}>Actions assigned for maximum customer value.</span>
+                            </div>
+                            {tpGoals.length===0 ? (
+                              <div className="py-6 text-center"><p className="text-[13px] text-walmart-gray-400 italic">Set Today's Plan rankings above to preview</p></div>
+                            ) : tpGoals.map((g,i)=>(
+                              <div key={i} className="flex items-center justify-between py-3" style={{borderBottom:i<tpGoals.length-1?'1px solid #E3E4E5':'none'}}>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{background:'#E6F1FC'}}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0071DC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                  </div>
+                                  <div>
+                                    <p className="text-[14px] font-semibold" style={{color:'#0071DC'}}>{g.name}</p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <div className="w-16 h-1.5 rounded-full" style={{background:'#E3E4E5'}}><div className="h-1.5 rounded-full" style={{background:'#0071DC',width:'40%'}}/></div>
+                                      <span className="text-[11px]" style={{color:'#74767C'}}>25% complete</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <I.ChevronRight s={16} c="#74767C"/>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Bottom nav */}
+                          <div className="sticky bottom-0 flex items-center justify-around px-4" style={{height:68,background:'#fff',boxShadow:'0 -5px 10px rgba(0,0,0,0.05)'}}>
+                            <div className="flex flex-col items-center gap-1">
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                              <span className="text-[10px]" style={{color:'#74767C'}}>First</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1">
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="#0071DC" stroke="#0071DC" strokeWidth="0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/></svg>
+                              <span className="text-[10px] font-semibold" style={{color:'#0071DC'}}>Today's plan</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1">
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#74767C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                              <span className="text-[10px]" style={{color:'#74767C'}}>Your Team</span>
+                            </div>
+                          </div>
+                          <div style={{height:8,background:'#fff'}}/>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </>)}
+            </>) : (
+              /* ═══ ASSIGNMENT SUB-TAB ═══ */
+              <div>
+                <div className="mb-4">
+                  <p className="text-[13px] text-walmart-gray-400">Assign a responsible team to each action. Teams are from the Action Details teams list.</p>
+                </div>
+                {allActions.length===0 ? (
+                  <div className="text-center py-20">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{background:'#E6F1FC'}}><I.Layers s={28}/></div>
+                    <h3 className="text-lg font-bold text-walmart-gray-700 mb-1">No actions to assign</h3>
+                    <p className="text-sm text-walmart-gray-400 mb-6">Add experiences with actions first.</p>
+                    <button onClick={()=>setMainTab('experience')} className="px-6 py-3 rounded-lg text-sm font-bold bg-walmart-blue text-white hover:bg-walmart-blue-dark inline-flex items-center gap-2"><I.Plus/> Go to Add Experience</button>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-walmart-gray-100 overflow-hidden">
+                    <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-walmart-gray-100" style={{background:'#F8F8F8'}}>
+                      <div className="col-span-4"><span className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Experience</span></div>
+                      <div className="col-span-4"><span className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Action</span></div>
+                      <div className="col-span-4"><span className="text-[11px] font-bold text-walmart-gray-400 uppercase tracking-wider">Team Responsible</span></div>
+                    </div>
+                    {allActions.map((a,i)=>(
+                      <div key={a.key} className={`grid grid-cols-12 gap-4 px-6 py-4 items-center ${i<allActions.length-1?'border-b border-walmart-gray-100':''}`}>
+                        <div className="col-span-4">
+                          <p className="text-[14px] font-semibold text-walmart-gray-700">{a.expName}</p>
+                        </div>
+                        <div className="col-span-4">
+                          <p className="text-[13px] text-walmart-gray-600">{a.actionName}</p>
+                        </div>
+                        <div className="col-span-4">
+                          <select value={assignments[a.key]||''} onChange={e=>setAssignment(a.key,e.target.value)} className="w-full text-[13px] border border-walmart-gray-200 rounded-lg px-2 py-1.5 text-walmart-gray-700 focus:outline-none focus:ring-2 focus:ring-walmart-blue/20 focus:border-walmart-blue bg-white">
+                            <option value="">Select team</option>
+                            {TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );
